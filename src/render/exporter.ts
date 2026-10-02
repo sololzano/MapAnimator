@@ -13,6 +13,7 @@ import { evaluate, runtime } from '../core/runtime';
 import { loadCountries, visitedCountries } from '../map/countries';
 import { attributionText, buildStyle } from '../map/style';
 import { drawOverlay } from './overlay';
+import { preloadPhotos } from './photos';
 import { SIGN_FONT } from './signs';
 
 export interface ExportProgress {
@@ -87,6 +88,8 @@ async function pickCodec(scene: Scene, w: number, h: number): Promise<VideoCodec
 export async function exportScene(job: ExportJob): Promise<Blob | null> {
   const { scene } = job;
   await document.fonts.load(`600 20px ${SIGN_FONT}`);
+  // Every sign photo must be decoded before the first frame.
+  await preloadPhotos(scene.signs.flatMap((g) => (g.photo ? [g.photo] : [])));
   const rt = runtime(scene);
   const [W, H] = exportDims(scene);
   const fps = exportFps(scene);

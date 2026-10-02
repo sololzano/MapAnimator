@@ -7,6 +7,7 @@ import { evaluate, runtime } from '../../core/runtime';
 import { loadCountries, visitedCountries } from '../../map/countries';
 import { attributionText, buildStyle } from '../../map/style';
 import { drawHandles, drawOverlay, midpoint, type Rect, type SignHit } from '../../render/overlay';
+import { onPhotoLoaded } from '../../render/photos';
 import { currentScene, useApp } from '../../state/store';
 import { cx } from '../../ui/controls';
 import { Icon } from '../../ui/icons';
@@ -212,8 +213,9 @@ export function Stage() {
       else if (s.step === 3) set({ selSign: null });
     });
     const offFit = stageBus.on('fit', () => { userMoved.current = false; fit(true); });
+    const offPhoto = onPhotoLoaded(() => requestAnimationFrame(draw));
     const offZoom = stageBus.on('zoom', (d) => map.easeTo({ zoom: map.getZoom() + (d as number), duration: 250 }));
-    return () => { offFit(); offZoom(); map.remove(); mapRef.current = null; };
+    return () => { offFit(); offZoom(); offPhoto(); map.remove(); mapRef.current = null; };
   }, [draw, fit, set]);
 
   // Track stage size.
@@ -342,7 +344,7 @@ export function Stage() {
           e.stopPropagation();
           suppressClick.current = true;
           app().set({ selSign: h.id });
-          drag.current = { type: 'sign', id: h.id, ox: p.x - (h.rect.x + h.rect.w / 2), oy: p.y - (h.rect.y + h.rect.h / 2), key: 'drag-' + rid() };
+          drag.current = { type: 'sign', id: h.id, ox: p.x - h.origin.x, oy: p.y - h.origin.y, key: 'drag-' + rid() };
           return;
         }
         // Clicking a route point picks it: selects its sign, or marks it as the place for the next new sign.

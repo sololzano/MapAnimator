@@ -90,7 +90,7 @@ function TopBar({ onExportStep }: { onExportStep: () => void }) {
       <div className="flex flex-1 items-center justify-end gap-2.5">
         <RatioPicker />
         <ThemeToggle />
-        <button title="Download project file" onClick={() => downloadBlob(projectToFile(project), projectFileName(project))}
+        <button title="Download project file" onClick={() => void projectToFile(project).then((b) => downloadBlob(b, projectFileName(project)))}
           className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-line bg-card hover:bg-panel"><Icon name="download" size={16} /></button>
         <Button variant="primary" className="h-[34px] px-4" onClick={onExportStep}>Export</Button>
       </div>

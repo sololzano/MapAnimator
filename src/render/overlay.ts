@@ -4,6 +4,7 @@
 import { legMode, signPointIndex, type Scene } from '../core/model';
 import type { FrameState, SceneRuntime } from '../core/runtime';
 import { mapTheme } from '../map/themes';
+import { photoBitmap } from './photos';
 import { SIGN_FONT, drawSignBody } from './signs';
 import { drawModeBadge, drawMotorcycle, type Pose } from './transport';
 import { hudItems } from '../core/hud';
@@ -31,7 +32,7 @@ export interface OverlayInput {
   showHidden?: boolean;
 }
 
-export interface SignHit { id: string; rect: Rect; anchor: { x: number; y: number } }
+export interface SignHit { id: string; rect: Rect; anchor: { x: number; y: number }; /** Card origin on screen. */ origin: { x: number; y: number } }
 
 export function drawOverlay(o: OverlayInput): SignHit[] {
   const { ctx, project, scene, rt, frame, scale: k } = o;
@@ -139,22 +140,22 @@ export function drawOverlay(o: OverlayInput): SignHit[] {
     ctx.fillStyle = ring; ctx.fill(); ctx.lineWidth = 2.5 * k; ctx.strokeStyle = ink; ctx.stroke();
   }
   for (const s of placed) {
-    if (s.v <= 0) { hits.push({ id: s.g.id, rect: { x: s.c.x, y: s.c.y, w: 0, h: 0 }, anchor: s.a }); continue; }
+    if (s.v <= 0) { hits.push({ id: s.g.id, rect: { x: s.c.x, y: s.c.y, w: 0, h: 0 }, anchor: s.a, origin: s.c }); continue; }
     const sc = s.g.size * k * (0.85 + 0.15 * s.v);
     ctx.save();
     ctx.globalAlpha = s.v;
     ctx.translate(s.c.x, s.c.y);
     ctx.scale(sc, sc);
-    const size = drawSignBody(ctx, s.g, accent);
+    const size = drawSignBody(ctx, s.g, accent, s.g.photo ? photoBitmap(s.g.photo) : undefined);
     ctx.restore();
-    const rect = { x: s.c.x - (size.w * sc) / 2, y: s.c.y - (size.h * sc) / 2, w: size.w * sc, h: size.h * sc };
+    const rect = { x: s.c.x + (size.ox - size.w / 2) * sc, y: s.c.y + (size.oy - size.h / 2) * sc, w: size.w * sc, h: size.h * sc };
     if (o.selectedSign === s.g.id) {
       ctx.save();
       ctx.strokeStyle = '#1e66f5'; ctx.lineWidth = 2; ctx.setLineDash([]);
       ctx.beginPath(); ctx.roundRect(rect.x - 6, rect.y - 6, rect.w + 12, rect.h + 12, 6); ctx.stroke();
       ctx.restore();
     }
-    hits.push({ id: s.g.id, rect, anchor: s.a });
+    hits.push({ id: s.g.id, rect, anchor: s.a, origin: s.c });
   }
   ctx.globalAlpha = 1;
 

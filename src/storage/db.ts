@@ -2,11 +2,23 @@ import Dexie, { type Table } from 'dexie';
 import type { Project } from '../core/model';
 
 // Everything lives in this browser's IndexedDB. Nothing is synced anywhere.
+/** A photo (or other binary) belonging to a project, e.g. a sign photo. */
+export interface Asset {
+  id: string;
+  projectId: string;
+  blob: Blob;
+  w: number;
+  h: number;
+  createdAt: number;
+}
+
 class Db extends Dexie {
   projects!: Table<Project, string>;
+  assets!: Table<Asset, string>;
   constructor() {
     super('elchilaquilwashere');
     this.version(1).stores({ projects: '&id, updatedAt' });
+    this.version(2).stores({ projects: '&id, updatedAt', assets: '&id, projectId' });
   }
 }
 
@@ -21,7 +33,33 @@ export async function saveProject(p: Project): Promise<void> {
 }
 
 export async function deleteProject(id: string): Promise<void> {
-  await db.projects.delete(id);
+  await db.transaction('rw', db.projects, db.assets, async () => {
+    await db.projects.delete(id);
+    await db.assets.where('projectId').equals(id).delete();
+  });
+}
+
+export async function putAsset(a: Asset): Promise<void> {
+  await db.assets.put(a);
+}
+
+export async function getAsset(id: string): Promise<Asset | undefined> {
+  return db.assets.get(id);
+}
+
+/** Photo ids referenced by a project's signs. */
+export function referencedAssets(p: Project): Set<string> {
+  const ids = new Set<string>();
+  for (const s of p.scenes) for (const g of s.signs) if (g.photo) ids.add(g.photo);
+  return ids;
+}
+
+/** Remove a project's assets that no sign uses any more (run when a project is opened). */
+export async function pruneAssets(p: Project): Promise<void> {
+  const used = referencedAssets(p);
+  const ids = (await db.assets.where('projectId').equals(p.id).primaryKeys()) as string[];
+  const stale = ids.filter((id) => !used.has(id));
+  if (stale.length) await db.assets.bulkDelete(stale);
 }
 
 /** Ask the browser not to evict our data. Returns whether storage is persistent. */

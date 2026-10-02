@@ -1,7 +1,7 @@
 import { produce } from 'immer';
 import { create } from 'zustand';
 import { makeProject, makeScene, normalizeProject, rid, type Project, type Ratio, type Scene } from '../core/model';
-import { deleteProject, listProjects, requestPersistence, saveProject } from '../storage/db';
+import { deleteProject, listProjects, pruneAssets, requestPersistence, saveProject } from '../storage/db';
 
 export type Step = 1 | 2 | 3 | 4 | 5;
 export type Tool = 'draw' | 'edit' | 'pan';
@@ -127,6 +127,7 @@ export const useApp = create<AppState>((set, get) => {
     openProject(id) {
       const p = get().projects.find((x) => x.id === id);
       if (!p) return;
+      void pruneAssets(p);
       set({ project: p, si: 0, step: 1, tool: p.scenes[0].points.length ? 'edit' : 'draw', sel: -1, selSign: null, tm: -1, playing: false, history: freshHistory() });
     },
     closeProject() {

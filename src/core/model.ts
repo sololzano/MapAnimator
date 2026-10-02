@@ -47,6 +47,8 @@ export interface Sign {
   /** Seconds the line waits when trigger === 'pause'. */
   pause: number;
   size: number;
+  /** Asset id of a photo shown on the sign (stored in IndexedDB, packed into project files). */
+  photo?: string;
 }
 
 export type MapThemeId = 'latte' | 'frappe' | 'paper' | 'mono' | 'terrain' | 'satellite' | 'night' | 'blueprint';

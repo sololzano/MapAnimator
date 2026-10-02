@@ -607,6 +607,9 @@ is the riskiest part, then widen each step.
   switches icon per leg (Tabler badges, plane top-down).
 - **On-screen counters** (Signs step): date (date / "Day N" / both) and distance (km/mi)
   in a corner card. The date interpolates between dated points; points can be dated by hand.
+- **Sign photos:** stored as JPEG Blobs (≤1600 px, EXIF-rotated) in an IndexedDB `assets`
+  table, packed into `.chilaquil` files as `assets/<id>.jpg`, pruned when a project opens.
+  Each sign design has a photo layout (polaroid, pinned frame, ticket stub, avatar).
 - **Not yet built:** great-circle arcs, music track,
-  motion blur, title cards, photo signboards, Service
+  motion blur, title cards, Service
   Worker tile cache, offline PMTiles, PWA.

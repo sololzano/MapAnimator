@@ -4,7 +4,7 @@ import { toMerc } from '../../core/geo';
 import { RATIOS, sampleProject, type Project, type Ratio } from '../../core/model';
 import { mapTheme } from '../../map/themes';
 import { downloadBlob } from '../../render/exporter';
-import { storageInfo } from '../../storage/db';
+import { putAsset, storageInfo } from '../../storage/db';
 import { PROJECT_EXT, projectFileName, projectFromFile, projectToFile } from '../../storage/projectFile';
 import { useApp } from '../../state/store';
 import { Button, Modal, PillChoice, TextField, cx } from '../../ui/controls';
@@ -79,7 +79,7 @@ function ProjectCard({ p }: { p: Project }) {
         ) : (
           <>
             <Button className="h-[34px] flex-1 font-semibold" onClick={() => goProject(p.id)}>Open</Button>
-            <Button className="h-[34px]" title="Download project file" onClick={() => downloadBlob(projectToFile(p), projectFileName(p))}>
+            <Button className="h-[34px]" title="Download project file" onClick={() => void projectToFile(p).then((b) => downloadBlob(b, projectFileName(p)))}>
               <Icon name="download" size={15} /> Download
             </Button>
             <Button className="h-[34px] w-[34px] px-0 text-muted hover:text-text" title="Delete" onClick={() => setConfirming(true)}>
@@ -133,7 +133,11 @@ export function ProjectsPage() {
   const onFile = async (f: File | undefined) => {
     if (!f) return;
     setError('');
-    try { addProject(await projectFromFile(f)); } catch (e) { setError(e instanceof Error ? e.message : 'Could not open that file.'); }
+    try {
+      const { project, assets } = await projectFromFile(f);
+      await Promise.all(assets.map(putAsset));
+      addProject(project);
+    } catch (e) { setError(e instanceof Error ? e.message : 'Could not open that file.'); }
   };
   const sorted = [...projects].sort((a, b) => b.updatedAt - a.updatedAt);
 

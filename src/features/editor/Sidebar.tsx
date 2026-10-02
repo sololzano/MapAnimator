@@ -1,5 +1,8 @@
+import { useEffect, useRef, useState } from 'react';
 import { TRAVEL_MODES, legMode, makeSign, outputSize, removePoint, rid, signPointIndex, type Scene, type SignStyle, type TipKind, type TravelMode } from '../../core/model';
 import { ModeIcon } from '../../ui/ModeIcon';
+import { importPhoto } from '../../render/photos';
+import { getAsset } from '../../storage/db';
 import { runtime } from '../../core/runtime';
 import { formatTime } from '../../core/timing';
 import { MAP_THEMES } from '../../map/themes';
@@ -303,6 +306,7 @@ function SignsPanel() {
           <>
             <TextField label="Title" value={sg.title} onChange={(v) => patch('title', (g) => { g.title = v; })} />
             <TextField label="Subtitle" value={sg.sub} onChange={(v) => patch('sub', (g) => { g.sub = v; })} />
+            <PhotoField photo={sg.photo} onChange={(id) => patch('photo', (g) => { g.photo = id; })} />
             <PointSelect label="Attached to point" scene={scene} value={Math.max(0, sgIndex)} onChange={(i) => { patch('point', (g) => { g.pointId = scene.points[i].id; }); set({ sel: i }); }} />
             <Segmented label="Design" value={sg.style} options={SIGNS.map(([id, l]) => [id, l])} onChange={(v) => patch('style', (g) => { g.style = v; })} />
             <Segmented label="At this point" value={sg.trigger} options={BEHAVIOURS.map(([v, l]) => [v, l])} onChange={(v) => patch('trigger', (g) => { g.trigger = v; })} />
@@ -332,6 +336,48 @@ function SignsPanel() {
       </Group>
       <CountersGroup />
     </>
+  );
+}
+
+/** Photo on a sign: pick, preview, replace, remove. Stored only in this browser (and in project files). */
+function PhotoField({ photo, onChange }: { photo?: string; onChange: (id: string | undefined) => void }) {
+  const projectId = useApp((s) => s.project?.id ?? '');
+  const say = useApp((s) => s.say);
+  const input = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let u: string | null = null, live = true;
+    setUrl(null);
+    if (photo) void getAsset(photo).then((a) => { if (a && live) { u = URL.createObjectURL(a.blob); setUrl(u); } });
+    return () => { live = false; if (u) URL.revokeObjectURL(u); };
+  }, [photo]);
+  const pick = async (f?: File) => {
+    if (!f) return;
+    setBusy(true);
+    try { onChange(await importPhoto(f, projectId)); } catch (e) { say(e instanceof Error ? e.message : 'Could not read that photo'); }
+    setBusy(false);
+  };
+  return (
+    <div className="flex flex-col gap-1.5 text-[13.5px]">
+      Photo
+      <input ref={input} type="file" accept="image/*" className="hidden" onChange={(e) => { void pick(e.target.files?.[0]); e.target.value = ''; }} />
+      {photo ? (
+        <div className="flex items-center gap-3">
+          <div className="h-16 w-24 flex-none overflow-hidden rounded-lg border border-line bg-panel-2">
+            {url && <img src={url} alt="" className="h-full w-full object-cover" />}
+          </div>
+          <div className="flex flex-col items-start gap-1.5">
+            <button className="border-0 bg-transparent p-0 text-[12.5px] text-accent hover:underline" onClick={() => input.current?.click()}>{busy ? 'Reading…' : 'Replace…'}</button>
+            <button className="border-0 bg-transparent p-0 text-[12.5px] text-red hover:underline" onClick={() => onChange(undefined)}>Remove</button>
+          </div>
+        </div>
+      ) : (
+        <Button className="h-[38px] border-dashed" onClick={() => input.current?.click()} disabled={busy}>
+          {busy ? 'Reading photo…' : '+ Add a photo'}
+        </Button>
+      )}
+    </div>
   );
 }
 
