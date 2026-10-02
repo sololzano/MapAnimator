@@ -20,11 +20,11 @@ export function fmtDist(m: number): string {
 
 const TITLES = ['Route', 'Look', 'Signs', 'Camera', 'Preview & export'];
 const DESCS = [
-  'Click to draw, import a GPX or a dated JSON timeline, then drag points to reshape.',
-  'Map style, labels and the look of the line. Appearance only — motion comes later.',
-  'Hang signboards on route points, and add on-screen date and distance counters.',
-  'Decide how the camera moves: follow, pan, zoom, rotate.',
-  'Pick resolution, frame rate and format. Pace and pauses live in the timeline below.',
+  'Draw on the map or import a route to get started.',
+  'Choose a map theme and style your route.',
+  'Add places, photos and counters to tell your story. Optional.',
+  'Follow the route or frame a fixed overview. The defaults are ready to preview.',
+  'Preview your animation, then save a video. Adjust its pace with Timing below.',
 ];
 export const STEP_LABELS = ['Route', 'Look', 'Signs', 'Camera', 'Export'];
 
@@ -49,19 +49,29 @@ function css(s: string): React.CSSProperties {
 
 export function Sidebar({ onImport, onExport }: { onImport: (kind: 'gpx' | 'json') => void; onExport: (all: boolean) => void }) {
   const step = useApp((s) => s.step);
+  const set = useApp((s) => s.set);
+  const go = (n: Step) => set({ step: n, playing: false, tm: n >= 4 ? 0 : -1, sel: -1, selSign: null });
+  const scroll = useRef<HTMLDivElement>(null);
+  useEffect(() => { scroll.current?.scrollTo({ top: 0 }); }, [step]);
   return (
-    <aside className="flex min-h-0 w-[332px] flex-none flex-col border-r border-line bg-panel">
+    <aside className="editor-sidebar flex min-h-0 w-[312px] flex-none flex-col border-r border-line bg-panel" aria-label={`${TITLES[step - 1]} settings`}>
       <div className="flex flex-col gap-1.5 px-5 pt-5 pb-4">
         <div className="eyebrow">Step {step} of 5</div>
-        <div className="text-[24px] leading-[1.1] font-semibold tracking-[-0.025em]">{TITLES[step - 1]}</div>
+        <h1 className="text-[24px] leading-[1.1] font-semibold tracking-[-0.025em]">{TITLES[step - 1]}</h1>
         <div className="text-[13px] leading-normal text-text-2 text-pretty">{DESCS[step - 1]}</div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div ref={scroll} className="sidebar-content min-h-0 flex-1 overflow-y-auto">
         {step === 1 && <RoutePanel onImport={onImport} />}
         {step === 2 && <LookPanel />}
         {step === 3 && <SignsPanel />}
         {step === 4 && <CameraPanel />}
         {step === 5 && <ExportPanel onExport={onExport} />}
+      </div>
+      <div className="flex flex-none items-center gap-2 border-t border-line bg-bg px-5 py-3">
+        {step > 1 && <Button className="h-10 px-3" onClick={() => go((step - 1) as Step)}><Icon name="back" size={14} />Back</Button>}
+        {step < 5
+          ? <Button variant="primary" className="h-10 flex-1" onClick={() => go((step + 1) as Step)}>Next: {STEP_LABELS[step]} <span aria-hidden="true">→</span></Button>
+          : <span className="text-[12px] text-muted">Your project saves automatically.</span>}
       </div>
     </aside>
   );
@@ -85,23 +95,16 @@ function RoutePanel({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }) 
   return (
     <>
       <div className="grid grid-cols-2 gap-2 px-5 pb-4">
-        <Button className="h-[38px]" onClick={() => onImport('gpx')}>Import GPX</Button>
-        <Button className="h-[38px]" onClick={() => onImport('json')}>Import JSON timeline</Button>
+        <Button title="Import a GPX or KML route" className="h-[38px] px-2" onClick={() => onImport('gpx')}>GPX / KML</Button>
+        <Button title="Import Google Timeline or a JSON route" className="h-[38px] px-2" onClick={() => onImport('json')}>Google Timeline</Button>
       </div>
-      <Group title="How to edit">
+      <Group title="Drawing & shortcuts" collapsible>
         <Info>Use the toolbar on the map. <b>Draw</b>: click to add points. <b>Move</b>: drag points; drag the small circles on the line to insert; right-click or <kbd>Delete</kbd> removes. <b>Pan</b>: hold the mouse wheel button and drag. Scroll to zoom. <kbd>Ctrl+Z</kbd> undoes.</Info>
       </Group>
-      <Group title="Display">
-        <Toggle label="Smooth spline through points" value={scene.smooth} onChange={(v) => update((s) => { s.smooth = v; })} />
-        <Toggle label="Number the points on the map" value={showNumbers} onChange={setShowNumbers} />
-      </Group>
-      <Group title="Travel mode">
-        <ModeGrid value={scene.travel} onChange={(m) => update((s) => { s.travel = m ?? 'car'; })} />
-        <Info>Used for every leg unless a leg sets its own. Pick <b>Transport</b> as the tip symbol in step 2 to show it on the line.</Info>
-      </Group>
       {sel >= 0 && sel < scene.points.length && <PointEditor i={sel} />}
-      <Group title={<>Points · {scene.points.length}{km > 0 && <span className="num normal-case tracking-normal"> · {fmtDist(km * 1000)} · ~{Math.round(rt.tm.T)} s clip</span>}</>}
-        right={scene.points.length > 0 && <button className="eyebrow bg-transparent p-0 text-red! hover:underline" onClick={() => { update((s) => { s.points = []; s.signs = []; }); set({ sel: -1, selSign: null, tm: -1 }); }}>Clear</button>}>
+      <Group title={`Route points · ${scene.points.length}`}
+        right={scene.points.length > 0 && <button aria-label="Clear route and signs" title="Clear route and signs (undo with Ctrl+Z)" className="eyebrow bg-transparent p-0 text-red! hover:underline" onClick={() => { update((s) => { s.points = []; s.signs = []; }); set({ sel: -1, selSign: null, tm: -1, playing: false }); }}>Clear</button>}>
+        {km > 0 && <div className="num -mt-1 text-[12px] text-muted">{fmtDist(km * 1000)} · {rt.tm.T.toFixed(1)} s animation</div>}
         {big ? (
           <div className="rounded-[10px] border border-line bg-card px-3.5 py-3 text-[12.5px] leading-normal text-text-2">
             <div className="num mb-1 text-[20px] font-semibold text-text">{scene.points.length} points</div>
@@ -112,10 +115,10 @@ function RoutePanel({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }) 
             {scene.points.map((q, i) => (
               <div key={q.id} onClick={() => set({ sel: i })}
                 className={cx('flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5', sel === i ? 'bg-card shadow-[inset_0_0_0_1px_var(--accent)]' : 'hover:bg-panel-2')}>
-                <span className={cx('num grid h-[22px] w-[22px] flex-none place-items-center rounded-full text-[11px] font-semibold', sel === i ? 'bg-accent text-on-accent' : 'bg-panel-2')}>{i + 1}</span>
+                <button aria-label={`Edit point ${i + 1}${q.name ? `: ${q.name}` : ''}`} aria-pressed={sel === i} onClick={() => set({ sel: i })} className={cx('num grid h-7 w-7 flex-none place-items-center rounded-full text-[11px] font-semibold', sel === i ? 'bg-accent text-on-accent' : 'bg-panel-2')}>{i + 1}</button>
                 <input value={q.name ?? ''} placeholder={`Point ${i + 1}`} onClick={(e) => e.stopPropagation()}
                   onChange={(e) => update((s) => { s.points[i].name = e.target.value || undefined; }, 'name-' + q.id)}
-                  className="min-w-0 flex-1 truncate border-0 bg-transparent p-0 text-[13.5px] outline-none placeholder:text-text" />
+                  aria-label={`Name of point ${i + 1}`} className="min-w-0 flex-1 truncate border-0 bg-transparent p-0 text-[13.5px] placeholder:text-text" />
                 {i > 0 && (
                   <span title={`${q.hidden ? 'Hidden leg · ' : ''}${TRAVEL_MODES.find(([m]) => m === legMode(scene, i))?.[1]}`}
                     className={cx('flex-none', q.hidden ? 'text-faint opacity-50' : q.mode ? 'text-accent' : 'text-muted')}>
@@ -126,8 +129,8 @@ function RoutePanel({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }) 
                   {i ? '+' + fmtDist(rt.route.M[rt.route.idx[i]] - rt.route.M[rt.route.idx[i - 1]]) : 'start'}
                   {q.time != null && <span className="block">{new Date(q.time).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</span>}
                 </span>
-                <button title="Delete point" onClick={(e) => { e.stopPropagation(); update((s) => removePoint(s, i)); set({ sel: -1 }); }}
-                  className="grid h-[22px] w-[22px] place-items-center rounded-[5px] border-0 bg-transparent p-0 text-muted hover:bg-panel-2 hover:text-text">
+                <button title="Delete point" aria-label={`Delete point ${i + 1}`} onClick={(e) => { e.stopPropagation(); update((s) => removePoint(s, i)); set({ sel: -1 }); }}
+                  className="grid h-7 w-7 place-items-center rounded-[5px] border-0 bg-transparent p-0 text-muted hover:bg-panel-2 hover:text-text">
                   <Icon name="x" size={13} />
                 </button>
               </div>
@@ -135,6 +138,14 @@ function RoutePanel({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }) 
             {!scene.points.length && <div className="px-2"><Info>No points yet — click on the map to start.</Info></div>}
           </div>
         )}
+      </Group>
+      <Group title={`Travel mode · ${TRAVEL_MODES.find(([m]) => m === scene.travel)?.[1]}`} collapsible>
+        <ModeGrid value={scene.travel} onChange={(m) => update((s) => { s.travel = m ?? 'car'; })} />
+        <Info>Used for every leg unless a leg sets its own. Pick <b>Transport</b> as the tip symbol in step 2 to show it on the line.</Info>
+      </Group>
+      <Group title="Route options" collapsible>
+        <Toggle label="Smooth spline through points" value={scene.smooth} onChange={(v) => update((s) => { s.smooth = v; })} />
+        <Toggle label="Number the points on the map" value={showNumbers} onChange={setShowNumbers} />
       </Group>
     </>
   );
@@ -147,7 +158,7 @@ function ModeGrid({ value, onChange, allowDefault }: { value: TravelMode | null;
   return (
     <div className="grid grid-cols-4 gap-1.5">
       {opts.map(([m, label]) => (
-        <button key={m ?? 'default'} onClick={() => onChange(m)} title={label}
+        <button key={m ?? 'default'} onClick={() => onChange(m)} title={label} aria-label={label} aria-pressed={value === m}
           className={cx('flex h-[54px] flex-col items-center justify-center gap-1 rounded-[9px] border text-[11px]',
             value === m ? 'border-accent bg-card font-semibold text-text' : 'border-transparent bg-panel-2 text-text-2 hover:text-text')}>
           {m ? <ModeIcon mode={m} size={20} /> : <span className="text-[15px] leading-5">↺</span>}
@@ -175,7 +186,7 @@ function PointEditor({ i }: { i: number }) {
   const defaultLabel = `Default (${TRAVEL_MODES.find(([m]) => m === scene.travel)?.[1]})`;
   return (
     <>
-      <Group title={<>Point {i + 1} · {name(q, i)}</>}>
+      <Group title={<>Point {i + 1} · date & details</>} collapsible>
         <label className="flex flex-col gap-1.5 text-[13.5px]">
           <span className="flex justify-between">Date at this point
             {q.time != null && <button className="border-0 bg-transparent p-0 text-[12px] text-accent hover:underline" onClick={() => update((s) => { s.points[i].time = undefined; })}>Clear</button>}
@@ -187,7 +198,7 @@ function PointEditor({ i }: { i: number }) {
         <Info>Used by the on-screen date counter (step 3). Dates between dated points are filled in as the line travels.</Info>
       </Group>
       {i > 0 && (
-        <Group title={<>Leg · {name(prev, i - 1)} → {name(q, i)}</>}>
+        <Group title={<>Leg · {name(prev, i - 1)} → {name(q, i)}</>} collapsible>
           <div className="num -mt-1.5 text-[12px] text-muted">{fmtDist(rt.route.M[rt.route.idx[i]] - rt.route.M[rt.route.idx[i - 1]])}{q.hidden ? ' · hidden' : ''}</div>
           <ModeGrid value={q.mode ?? null} allowDefault={defaultLabel} onChange={(m) => update((s) => { s.points[i].mode = m ?? undefined; }, 'leg-mode-' + q.id)} />
           <Toggle label="Hide this leg" value={!!q.hidden} onChange={(v) => update((s) => { s.points[i].hidden = v || undefined; })} />
@@ -323,15 +334,15 @@ function SignsPanel() {
           {[...scene.signs].sort((a, b) => (rt.tm.signP.get(a.id) ?? 0) - (rt.tm.signP.get(b.id) ?? 0)).map((g) => {
             const i = signPointIndex(scene.points, g);
             return (
-              <div key={g.id} onClick={() => set({ selSign: g.id, sel: i })}
-                className={cx('flex cursor-pointer items-center gap-2.5 rounded-lg px-[9px] py-[7px]', selSign === g.id ? 'bg-card shadow-[inset_0_0_0_1px_var(--accent)]' : 'hover:bg-panel-2')}>
+              <button key={g.id} aria-label={`Edit sign: ${g.title}`} aria-pressed={selSign === g.id} onClick={() => set({ selSign: g.id, sel: i })}
+                className={cx('flex min-w-0 cursor-pointer items-center gap-2.5 rounded-lg px-[9px] py-[7px] text-left', selSign === g.id ? 'bg-card shadow-[inset_0_0_0_1px_var(--accent)]' : 'hover:bg-panel-2')}>
                 <span className="num grid h-[22px] min-w-[22px] flex-none place-items-center rounded-full bg-panel-2 px-1 text-[11px] font-semibold">{i + 1}</span>
                 <span className="flex-1 truncate text-[13.5px]">{g.title}</span>
                 <span className="num text-[11px] text-muted">{{ reach: 'appears', pause: `pause ${g.pause}s`, always: 'always' }[g.trigger]} · {formatTime(g.trigger === 'always' ? 0 : rt.tm.timeAtP(rt.tm.signP.get(g.id) ?? 0))}</span>
-              </div>
+              </button>
             );
           })}
-          {!scene.signs.length && <div className="px-2"><Info>No signs yet.</Info></div>}
+          {!scene.signs.length && <div className="px-2"><Info>No signs yet. Choose a point above, then select a sign design to add one.</Info></div>}
         </div>
       </Group>
       <CountersGroup />
@@ -448,7 +459,7 @@ function CameraPanel() {
             <Toggle label="Start on the overview, then zoom in" value={cam.intro} onChange={setC('intro')} />
             <Toggle label="Pull back to the overview at the end" value={cam.outro} onChange={setC('outro')} />
           </Group>
-      <Group title={`Zoom keyframes · ${cam.kfs.length}`}>
+      <Group title={`Advanced: zoom keyframes · ${cam.kfs.length}`} collapsible>
         <Info>Move the playhead, then add a keyframe. The camera eases between keyframes.</Info>
         <Button className="h-9 hover:border-accent" onClick={addKf}><Icon name="diamond" size={14} />Add keyframe at playhead</Button>
         {[...cam.kfs].sort((a, b) => a.p - b.p).map((k) => (
@@ -456,9 +467,9 @@ function CameraPanel() {
             <div className="num flex items-center justify-between text-[12px] font-medium">
               <span>◆ {formatTime(rt.tm.timeAtP(k.p))}</span>
               <span className="text-text-2">{zfmt(k.z)}</span>
-              <button className="border-0 bg-transparent px-1 text-muted hover:text-text" onClick={() => update((s) => { s.cam.kfs = s.cam.kfs.filter((q) => q.id !== k.id); })}><Icon name="x" size={13} /></button>
+              <button aria-label={`Delete keyframe at ${formatTime(rt.tm.timeAtP(k.p))}`} className="border-0 bg-transparent px-1 text-muted hover:text-text" onClick={() => update((s) => { s.cam.kfs = s.cam.kfs.filter((q) => q.id !== k.id); })}><Icon name="x" size={13} /></button>
             </div>
-            <input type="range" min={0} max={8} step={0.1} value={k.z} onChange={(e) => { const z = parseFloat(e.target.value); update((s) => { const q = s.cam.kfs.find((x) => x.id === k.id); if (q) q.z = z; }, 'kf-' + k.id); }} />
+            <input aria-label={`Zoom at ${formatTime(rt.tm.timeAtP(k.p))}`} type="range" min={0} max={8} step={0.1} value={k.z} onChange={(e) => { const z = parseFloat(e.target.value); update((s) => { const q = s.cam.kfs.find((x) => x.id === k.id); if (q) q.z = z; }, 'kf-' + k.id); }} />
           </div>
         ))}
       </Group>
@@ -471,6 +482,8 @@ function CameraPanel() {
 function ExportPanel({ onExport }: { onExport: (all: boolean) => void }) {
   const [scene, update] = useScene();
   const count = useApp((s) => s.project?.scenes.length ?? 1);
+  const readyCount = useApp((s) => s.project?.scenes.filter((x) => x.points.length >= 2).length ?? 0);
+  const set = useApp((s) => s.set);
   const ex = scene.exp;
   const setE = <K extends keyof Scene['exp']>(k: K) => (v: Scene['exp'][K]) => update((s) => { s.exp[k] = v; }, 'exp-' + String(k));
   const rt = runtime(scene);
@@ -499,8 +512,12 @@ function ExportPanel({ onExport }: { onExport: (all: boolean) => void }) {
             </div>
           ))}
         </div>
-        <Button variant="primary" className="h-11 text-[14px]" onClick={() => onExport(false)}>Export this scene</Button>
-        <Button variant="outline" className="h-11 text-[14px]" onClick={() => onExport(true)}>Export all {count} {count === 1 ? 'scene' : 'scenes'}</Button>
+        {scene.points.length < 2 && <div className="rounded-lg bg-accent-soft p-3 text-[13px]">Add at least two route points to export this scene. <button className="font-semibold underline" onClick={() => set({ step: 1, tool: 'draw', tm: -1, playing: false })}>Draw a route</button></div>}
+        <Button variant="primary" className="h-11 text-[14px]" disabled={scene.points.length < 2} onClick={() => onExport(false)}>Export this scene</Button>
+        {count > 1 && <>
+          <Button variant="outline" className="h-11 text-[14px]" disabled={!readyCount} onClick={() => onExport(true)}>Export {readyCount === count ? `all ${count}` : readyCount} {readyCount === 1 ? 'scene' : 'scenes'}</Button>
+          {readyCount < count && <Info>{count - readyCount} {count - readyCount === 1 ? 'scene has' : 'scenes have'} fewer than two points and will be skipped.</Info>}
+        </>}
         <div className="text-[12px] leading-normal text-muted">Rendered in your browser with your GPU. Nothing is uploaded. Keep this tab visible while exporting.</div>
       </div>
     </>
@@ -510,21 +527,20 @@ function ExportPanel({ onExport }: { onExport: (all: boolean) => void }) {
 export function StepNav() {
   const step = useApp((s) => s.step);
   const set = useApp((s) => s.set);
-  const go = (n: Step) => set({ step: n, playing: false, tm: n >= 4 ? 0 : -1, sel: -1 });
+  const go = (n: Step) => set({ step: n, playing: false, tm: n >= 4 ? 0 : -1, sel: -1, selSign: null });
   return (
-    <nav className="flex items-center gap-1 rounded-xl bg-panel p-[3px]">
+    <nav aria-label="Animation workflow" className="step-nav mx-auto flex max-w-[720px] items-center gap-1 rounded-xl bg-panel p-[3px]">
       {STEP_LABELS.map((label, i) => {
         const n = (i + 1) as Step, on = step === n;
         return (
-          <button key={label} onClick={() => go(n)}
-            className={cx('flex h-[34px] items-center gap-2 rounded-[9px] border-0 pr-3.5 pl-2 text-[13px] whitespace-nowrap max-[1380px]:pr-2', on ? 'bg-card font-semibold text-text shadow-[0_1px_3px_rgba(0,0,0,.15)]' : 'bg-transparent text-text-2 hover:text-text')}>
+          <button key={label} aria-label={`Step ${n}: ${label}`} aria-current={on ? 'step' : undefined} title={`${label} (keyboard: ${n})`} onClick={() => go(n)}
+            className={cx('flex h-[34px] min-w-0 flex-1 items-center justify-center gap-2 rounded-[9px] border-0 px-2 text-[13px] whitespace-nowrap', on ? 'bg-card font-semibold text-text shadow-[0_1px_3px_rgba(0,0,0,.15)]' : 'bg-transparent text-text-2 hover:text-text')}>
             <span className={cx('num grid h-5 w-5 place-items-center rounded-full text-[11px] font-semibold',
               on ? 'bg-accent text-on-accent' : step > n ? 'bg-accent-soft text-text' : 'border border-line-x text-muted')}>{n}</span>
-            <span className={on ? '' : 'max-[1380px]:hidden'}>{label}</span>
+            <span>{label}</span>
           </button>
         );
       })}
     </nav>
   );
 }
-

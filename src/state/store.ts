@@ -146,7 +146,9 @@ export const useApp = create<AppState>((set, get) => {
       commit(produce(project, (d) => { recipe(d.scenes[si]); }), mergeKey);
     },
     setSceneIndex(i) {
-      set({ si: i, sel: -1, selSign: null, tm: get().step >= 4 ? 0 : -1, playing: false });
+      const scene = get().project?.scenes[i];
+      if (!scene) return;
+      set({ si: i, tool: scene.points.length ? 'edit' : 'draw', sel: -1, selSign: null, tm: get().step >= 4 ? 0 : -1, playing: false });
     },
     addScene(copyCurrent) {
       const { project, si } = get();
@@ -156,7 +158,7 @@ export const useApp = create<AppState>((set, get) => {
         ? { ...structuredClone(cur), id: rid('s'), name: cur.name + ' copy' }
         : makeScene('Scene ' + (project.scenes.length + 1), { ratio: cur.ratio, look: { ...cur.look }, cam: { ...cur.cam, kfs: [] }, exp: { ...cur.exp } });
       commit({ ...project, scenes: [...project.scenes, s] });
-      set({ si: project.scenes.length, sel: -1, selSign: null, tm: get().step >= 4 ? 0 : -1, playing: false });
+      set({ si: project.scenes.length, step: copyCurrent ? get().step : 1, tool: s.points.length ? 'edit' : 'draw', sel: -1, selSign: null, tm: copyCurrent && get().step >= 4 ? 0 : -1, playing: false });
     },
     removeScene(i) {
       const { project, si } = get();

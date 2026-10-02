@@ -30,7 +30,7 @@ export function ThemeToggle() {
   const setTheme = useApp((s) => s.setUiTheme);
   const dark = theme === 'frappe';
   return (
-    <button onClick={() => setTheme(dark ? 'latte' : 'frappe')} title={dark ? 'Switch to Latte (light)' : 'Switch to Frappé (dark)'}
+    <button onClick={() => setTheme(dark ? 'latte' : 'frappe')} aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'} title={dark ? 'Switch to Latte (light)' : 'Switch to Frappé (dark)'}
       className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-line bg-card text-text-2 hover:bg-panel">
       <Icon name={dark ? 'sun' : 'moon'} size={17} />
     </button>
@@ -40,7 +40,8 @@ export function ThemeToggle() {
 function Thumb({ p }: { p: Project }) {
   const s = p.scenes[0];
   const th = mapTheme(s.look.theme);
-  const P = (s.points.length ? s.points : [{ lng: -9.14, lat: 38.72 }, { lng: -8.63, lat: 41.16 }]).map((q) => toMerc(q.lng, q.lat));
+  if (!s.points.length) return <div className="grid h-[150px] place-items-center bg-panel text-[13px] text-muted">No route yet · {s.ratio}</div>;
+  const P = s.points.map((q) => toMerc(q.lng, q.lat));
   const xs = P.map((q) => q.x), ys = P.map((q) => q.y);
   const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
   const k = Math.min(200 / (x1 - x0 || 1e-9), 100 / (y1 - y0 || 1e-9));
@@ -64,7 +65,7 @@ function ProjectCard({ p }: { p: Project }) {
   const n = p.scenes.length;
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-line bg-card transition-shadow hover:shadow-[0_8px_28px_rgba(20,20,19,.12)]">
-      <div onClick={() => goProject(p.id)}><Thumb p={p} /></div>
+      <button aria-label={`Open ${p.name}`} onClick={() => goProject(p.id)} className="block w-full border-0 p-0"><Thumb p={p} /></button>
       <div className="flex flex-col gap-1 px-[18px] pt-4 pb-3.5">
         <div className="truncate text-[18px] font-semibold tracking-[-0.015em]">{p.name}</div>
         <div className="num text-[12px] text-muted">{n} {n === 1 ? 'scene' : 'scenes'} · {ago(p.updatedAt)}</div>
@@ -82,8 +83,8 @@ function ProjectCard({ p }: { p: Project }) {
             <Button className="h-[34px]" title="Download project file" onClick={() => void projectToFile(p).then((b) => downloadBlob(b, projectFileName(p)))}>
               <Icon name="download" size={15} /> Download
             </Button>
-            <Button className="h-[34px] w-[34px] px-0 text-muted hover:text-text" title="Delete" onClick={() => setConfirming(true)}>
-              <Icon name="x" size={15} />
+            <Button className="h-[34px] w-[34px] px-0 text-muted hover:text-text" title="Delete project" aria-label={`Delete ${p.name}`} onClick={() => setConfirming(true)}>
+              <Icon name="trash" size={15} />
             </Button>
           </>
         )}
@@ -105,17 +106,20 @@ function NewProjectModal({ onClose }: { onClose: () => void }) {
   };
   return (
     <Modal title="New project" onClose={onClose}>
+      <form className="flex flex-col gap-5" onSubmit={(e) => { e.preventDefault(); go(); }}>
       <TextField label={<span className="text-text-2">Name</span>} value={name} onChange={setName} autoFocus />
       <div className="flex flex-col gap-1.5 text-[13px] text-text-2">First scene video ratio
         <PillChoice mono value={ratio} options={RATIOS.map((r) => [r, r])} onChange={setRatio} />
       </div>
+      <p className="-mt-3 text-[12px] text-muted">16:9 widescreen · 9:16 portrait · 1:1 square · 4:5 social. You can change this later.</p>
       <div className="flex flex-col gap-1.5 text-[13px] text-text-2">Start with
-        <PillChoice value={start} options={[['draw', 'Draw on map'], ['gpx', 'Import GPX'], ['json', 'Import JSON timeline']]} onChange={setStart} />
+        <PillChoice value={start} options={[['draw', 'Draw on map'], ['gpx', 'GPX / KML'], ['json', 'Google Timeline']]} onChange={setStart} />
       </div>
       <div className="mt-1 flex justify-end gap-2.5">
-        <Button className="h-[42px] px-[18px] text-[14px]" onClick={onClose}>Cancel</Button>
-        <Button variant="primary" className="h-[42px] px-[22px] text-[14px]" onClick={go}>Create &amp; open editor</Button>
+        <Button type="button" className="h-[42px] px-[18px] text-[14px]" onClick={onClose}>Cancel</Button>
+        <Button type="submit" variant="primary" className="h-[42px] px-[22px] text-[14px]">Create project</Button>
       </div>
+      </form>
     </Modal>
   );
 }
@@ -144,14 +148,14 @@ export function ProjectsPage() {
   return (
     <div className="absolute inset-0 overflow-auto bg-bg" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); void onFile(e.dataTransfer.files[0]); }}>
       <input ref={fileRef} type="file" accept={`${PROJECT_EXT},.zip,.json`} className="hidden" onChange={(e) => { void onFile(e.target.files?.[0]); e.target.value = ''; }} />
-      <div className="mx-auto flex max-w-[1160px] flex-col gap-10 px-10 pt-7 pb-[72px]">
+      <div className="mx-auto flex max-w-[1160px] flex-col gap-8 px-4 pt-5 pb-[72px] sm:gap-10 sm:px-10 sm:pt-7">
         <header className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
             <Logo />
-            <span className="text-[19px] font-semibold tracking-[-0.02em]">ElChilaquil<span className="text-accent">WasHere</span></span>
+            <span className="text-[16px] font-semibold tracking-[-0.02em] sm:text-[19px]">ElChilaquil<span className="text-accent">WasHere</span></span>
           </div>
           <div className="flex items-center gap-2.5">
-            <div className="flex items-center gap-2 rounded-full border border-line bg-panel px-3 py-[7px] text-[12.5px] text-text-2">
+            <div className="hidden items-center gap-2 rounded-full border border-line bg-panel px-3 py-[7px] text-[12.5px] text-text-2 md:flex">
               <span className="h-[7px] w-[7px] rounded-full bg-green" />Stored in this browser only · no account
             </div>
             <ThemeToggle />
@@ -161,8 +165,8 @@ export function ProjectsPage() {
         <section className="flex flex-wrap items-end justify-between gap-6">
           <div className="flex max-w-[620px] flex-col gap-3">
             <div className="eyebrow">Projects</div>
-            <h1 className="m-0 text-[52px] leading-[1.04] font-semibold tracking-[-0.035em]">Your journeys, <span className="text-accent">in motion.</span></h1>
-            <p className="m-0 text-[16px] leading-normal text-text-2 text-pretty">Draw a route, dress the map, drop signs, direct the camera, export. Every project lives on this device and holds as many scenes as you like.</p>
+            <h1 className="m-0 text-[38px] leading-[1.08] font-semibold tracking-[-0.035em] sm:text-[52px]">Your journeys, <span className="text-accent">in motion.</span></h1>
+            <p className="m-0 text-[16px] leading-normal text-text-2 text-pretty">Turn a route into a map animation. Draw or import your journey, choose a style, and export a video. No account needed.</p>
           </div>
           <div className="flex gap-2.5">
             <Button className="h-[42px] px-[18px] text-[14px]" onClick={() => fileRef.current?.click()}><Icon name="upload" size={16} />Open from file</Button>
@@ -170,20 +174,22 @@ export function ProjectsPage() {
           </div>
         </section>
 
-        {error && <div className="rounded-xl border border-red/40 bg-card px-4 py-3 text-[13.5px] text-red">{error}</div>}
+        {error && <div role="alert" className="rounded-xl border border-red/40 bg-card px-4 py-3 text-[13.5px] text-red">{error}</div>}
 
-        <section className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-5">
+        <section aria-label="Projects" className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-5">
+          {!projects.length &&
           <button onClick={() => setNewOpen(true)}
             className="flex min-h-[268px] flex-col items-center justify-center gap-2.5 rounded-2xl border-[1.5px] border-dashed border-line-x bg-transparent text-text-2 hover:border-accent hover:bg-panel">
             <span className="grid h-11 w-11 place-items-center rounded-full bg-panel-2"><Icon name="plus" size={20} /></span>
             <span className="text-[17px] font-semibold text-text">New project</span>
-            <span className="text-[13px] text-muted">Draw, or import GPX / JSON</span>
-          </button>
+            <span className="text-[13px] text-muted">Draw a route or import a file</span>
+          </button>}
           {sorted.map((p) => <ProjectCard key={p.id} p={p} />)}
           {!projects.length && (
-            <button onClick={() => addProject(sampleProject())}
+            <button onClick={() => { const p = sampleProject(); addProject(p); goProject(p.id); }}
               className="flex min-h-[268px] flex-col items-center justify-center gap-2.5 rounded-2xl border border-line bg-panel text-text-2 hover:border-accent">
-              <span className="text-[17px] font-semibold text-text">Try a sample</span>
+              <Icon name="play" size={24} />
+              <span className="text-[17px] font-semibold text-text">Explore a sample</span>
               <span className="max-w-[220px] text-center text-[13px] text-muted">A Lisbon → Porto road trip with signs, ready to preview and export.</span>
             </button>
           )}

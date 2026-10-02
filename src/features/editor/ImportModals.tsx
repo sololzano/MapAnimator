@@ -28,17 +28,18 @@ function withSigns(points: RoutePoint[], stops: Parameters<typeof stopSigns>[1] 
   return { points, signs: stops ? stopSigns(points, stops) : [] };
 }
 
-export function GpxImportModal({ data, fileName, onDone, onCancel }: { data: RouteImport; fileName: string; onDone: (r: ImportResult) => void; onCancel: () => void }) {
+export function GpxImportModal({ data, fileName, onDone, onCancel, replacing = false }: { data: RouteImport; fileName: string; onDone: (r: ImportResult) => void; onCancel: () => void; replacing?: boolean }) {
   const n = data.pts.length;
   const [max, setMax] = useState(Math.min(n, 80));
   const [signs, setSigns] = useState(data.waypoints.some((w) => w.name));
   const named = data.waypoints.filter((w) => w.name);
   return (
-    <Modal title="Import GPX" onClose={onCancel} width={500}>
+    <Modal title={/\.kml$/i.test(fileName) ? 'Import KML' : 'Import GPX'} onClose={onCancel} width={500}>
       <Info><b className="text-text">{fileName}</b> · {n.toLocaleString()} track points{data.waypoints.length ? ` · ${data.waypoints.length} waypoints` : ''}.</Info>
       <Slider label="Editable points" value={Math.min(max, n)} min={Math.min(2, n)} max={Math.min(n, 400)} step={1} format={(v) => `${v} of ${n.toLocaleString()}`} onChange={setMax} />
       <Info>Fewer points are easier to edit; the smooth spline keeps the shape. Named waypoints are always kept.</Info>
       {named.length > 0 && <Toggle label={`Add a sign at each named waypoint (${named.length})`} value={signs} onChange={setSigns} />}
+      {replacing && <Info>This replaces the current scene’s route and signs. You can undo the import with Ctrl+Z.</Info>}
       <div className="flex justify-end gap-2.5">
         <Button className="h-10 px-4" onClick={onCancel}>Cancel</Button>
         <Button variant="primary" className="h-10 px-5" onClick={() => onDone(withSigns(toRoutePoints(data.pts, max), signs ? named : null))}>Import route</Button>
@@ -56,7 +57,7 @@ function defaultRange(days: string[]): [string, string] {
   return [days[start], days[end]];
 }
 
-export function TimelineImportModal({ tl, fileName, onDone, onCancel }: { tl: ParsedTimeline; fileName: string; onDone: (r: ImportResult) => void; onCancel: () => void }) {
+export function TimelineImportModal({ tl, fileName, onDone, onCancel, replacing = false }: { tl: ParsedTimeline; fileName: string; onDone: (r: ImportResult) => void; onCancel: () => void; replacing?: boolean }) {
   const hist = useMemo(() => dayHistogram(tl.samples), [tl]);
   const days = hist.map((d) => d.day);
   const [[from, to], setRange] = useState<[string, string]>(() => defaultRange(days));
@@ -138,6 +139,7 @@ export function TimelineImportModal({ tl, fileName, onDone, onCancel }: { tl: Pa
         format={(v) => `${Math.min(v, filtered.pts.length)} of ${filtered.pts.length.toLocaleString()}`} onChange={setMax} />
       {filtered.stops.length > 0 && <Toggle label={`Add a sign at each stop (${Math.min(30, filtered.stops.length)})`} value={signs} onChange={setSigns} />}
       <Info>Everything is processed on this device. Stops are kept as route points; you can rename them and the signs afterwards.</Info>
+      {replacing && <Info>This replaces the current scene’s route and signs. You can undo the import with Ctrl+Z.</Info>}
       <div className="flex justify-end gap-2.5">
         <Button className="h-10 px-4" onClick={onCancel}>Cancel</Button>
         <Button variant="primary" className="h-10 px-5" disabled={filtered.pts.length < 2}

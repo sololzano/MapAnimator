@@ -17,8 +17,8 @@
   --text-2: #5c5f77;
   --muted: #6c6f85;
   --faint: #8c8fa1;
-  --accent: #179299;
-  --accent-hover: #11787e;
+  --accent: #117f85;
+  --accent-hover: #0f747a;
   --on-accent: #ffffff;
   --accent-soft: #d2e9ea;
   --inverse: #4c4f69;
@@ -125,3 +125,41 @@ input[type="range"] { accent-color: var(--accent); width: 100%; margin: 0; }
 }
 
 .maplibregl-canvas:focus-visible { outline: none; }
+
+/* Keep the map and every workflow step reachable on smaller screens. */
+@media (max-width: 760px) {
+  .editor-shell { overflow-y: auto; }
+  .editor-topbar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .editor-actions { justify-content: space-between; }
+  .editor-workflow { position: sticky; top: 0; z-index: 20; }
+  .editor-body { flex: none; flex-direction: column; }
+  .editor-preview { order: -1; flex: none; }
+  .map-stage { flex: none; height: clamp(330px, 52dvh, 500px); }
+  .frame-caption { top: 100%; bottom: auto; left: 12px; margin-top: 8px; font-size: 10px; }
+  .editor-timeline { height: 160px; }
+  .editor-sidebar { width: 100%; border-right: 0; border-top: 1px solid var(--line); }
+  .sidebar-content { overflow: visible; flex: none; }
+  .step-nav { gap: 2px; }
+  .step-nav button { gap: 4px; padding-inline: 4px; font-size: 12px; }
+  .scene-bar { padding-inline: 10px; }
+}
+
+@media (max-width: 520px) {
+  .step-nav button > span:first-child { display: none; }
+  .timing-summary { display: none; }
+  .timeline-toolbar { gap: 6px; padding-inline: 8px; }
+  .timeline-toolbar > button:nth-child(2) { gap: 6px; padding-inline: 8px; font-size: 12px; }
+  .timeline-toolbar .num { flex: none; font-size: 10px; gap: 3px; white-space: nowrap; }
+  .timeline-toolbar .num > span { font-size: 10px; }
+  .timeline-ticks > div:nth-child(even) { display: none; }
+}
+
+@media (max-width: 360px) {
+  .editor-actions { gap: 6px; }
+  .ratio-picker button { padding-inline: 7px; }
+  .ratio-picker button > span:last-child { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0ms !important; }
+}

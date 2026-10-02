@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 
 export function cx(...c: (string | false | null | undefined)[]) {
   return c.filter(Boolean).join(' ');
@@ -16,13 +16,19 @@ const VARIANTS: Record<BtnVariant, string> = {
 
 export function Button({ variant = 'secondary', className, children, ...rest }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: BtnVariant }) {
   return (
-    <button {...rest} className={cx('inline-flex items-center justify-center gap-2 rounded-[9px] px-3.5 text-[13px] font-medium whitespace-nowrap transition-colors disabled:opacity-40 disabled:pointer-events-none', VARIANTS[variant], className)}>
+    <button type="button" {...rest} className={cx('inline-flex items-center justify-center gap-2 rounded-[9px] px-3.5 text-[13px] font-medium whitespace-nowrap transition-colors disabled:opacity-40 disabled:pointer-events-none', VARIANTS[variant], className)}>
       {children}
     </button>
   );
 }
 
-export function Group({ title, children, right }: { title: ReactNode; children: ReactNode; right?: ReactNode }) {
+export function Group({ title, children, right, collapsible = false }: { title: ReactNode; children: ReactNode; right?: ReactNode; collapsible?: boolean }) {
+  if (collapsible) return (
+    <details className="border-t border-line px-5 py-4">
+      <summary className="eyebrow cursor-pointer select-none">{title}</summary>
+      <div className="mt-3.5 flex flex-col gap-3.5">{children}</div>
+    </details>
+  );
   return (
     <section className="flex flex-col gap-3.5 border-t border-line px-5 pt-4 pb-[18px]">
       <div className="flex items-center justify-between">
@@ -41,7 +47,7 @@ export function Info({ children }: { children: ReactNode }) {
 export function Toggle({ label, value, onChange, disabled }: { label: ReactNode; value: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   return (
     <button type="button" role="switch" aria-checked={value} disabled={disabled} onClick={() => onChange(!value)}
-      className="flex w-full items-center justify-between gap-3 bg-transparent p-0 text-left text-[13.5px] text-text disabled:opacity-40">
+      className="flex min-h-8 w-full items-center justify-between gap-3 bg-transparent p-0 text-left text-[13.5px] text-text disabled:opacity-40">
       <span>{label}</span>
       <span className={cx('relative h-5 w-[34px] flex-none rounded-full transition-colors', value ? 'bg-accent' : 'bg-line-x')}>
         <span className={cx('absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,.25)] transition-[left]', value ? 'left-4' : 'left-0.5')} />
@@ -67,13 +73,22 @@ export function Slider({ label, value, min, max, step, format, onChange }: {
 export function Segmented<T extends string | number>({ label, value, options, onChange }: {
   label?: ReactNode; value: T; options: [T, string][]; onChange: (v: T) => void;
 }) {
+  const labelId = useId();
   return (
     <div className="flex flex-col gap-[7px]">
-      {label && <span className="text-[13.5px]">{label}</span>}
-      <div className="flex gap-0.5 rounded-[9px] bg-panel-2 p-0.5" role="radiogroup">
+      {label && <span id={labelId} className="text-[13.5px]">{label}</span>}
+      <div className="flex gap-0.5 rounded-[9px] bg-panel-2 p-0.5" role="radiogroup" aria-labelledby={label ? labelId : undefined} aria-label={label ? undefined : 'Options'}
+        onKeyDown={(e) => {
+          if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) return;
+          e.preventDefault();
+          const i = options.findIndex(([v]) => v === value);
+          const next = e.key === 'Home' ? 0 : e.key === 'End' ? options.length - 1 : (i + (e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1) + options.length) % options.length;
+          onChange(options[next][0]);
+          e.currentTarget.querySelectorAll<HTMLButtonElement>('button')[next].focus();
+        }}>
         {options.map(([v, l]) => (
-          <button key={String(v)} type="button" role="radio" aria-checked={value === v} onClick={() => onChange(v)}
-            className={cx('h-[30px] flex-1 rounded-[7px] border-0 text-[12.5px] transition-colors',
+          <button key={String(v)} type="button" role="radio" aria-checked={value === v} tabIndex={value === v ? 0 : -1} onClick={() => onChange(v)}
+            className={cx('min-h-[34px] min-w-0 flex-1 rounded-[7px] border-0 px-1 text-[12.5px] transition-colors',
               value === v ? 'bg-card font-semibold text-text shadow-[0_1px_3px_rgba(0,0,0,.15)]' : 'bg-transparent text-text-2 hover:text-text')}>
             {l}
           </button>
@@ -89,12 +104,12 @@ export function Swatches({ label, value, colors, onChange }: { label: ReactNode;
       <span className="text-[13.5px]">{label}</span>
       <div className="flex flex-wrap gap-2.5">
         {colors.map((c) => (
-          <button key={c} type="button" aria-label={c} onClick={() => onChange(c)} style={{ background: c }}
+          <button key={c} type="button" aria-label={`Colour ${c}`} aria-pressed={value.toLowerCase() === c.toLowerCase()} onClick={() => onChange(c)} style={{ background: c }}
             className={cx('h-7 w-7 rounded-full p-0', value.toLowerCase() === c.toLowerCase() ? 'ring-2 ring-inverse ring-offset-2 ring-offset-panel' : 'border border-line-x')} />
         ))}
         <label className="relative grid h-7 w-7 cursor-pointer place-items-center rounded-full border border-dashed border-line-x text-[13px] text-muted" title="Custom colour">
           +
-          <input type="color" value={value} onChange={(e) => onChange(e.target.value)} className="absolute inset-0 cursor-pointer opacity-0" />
+          <input type="color" aria-label="Custom colour" value={value} onChange={(e) => onChange(e.target.value)} className="absolute inset-0 cursor-pointer opacity-0" />
         </label>
       </div>
     </div>
@@ -109,9 +124,9 @@ export function Cards<T extends string>({ label, value, options, onChange }: {
       <span className="text-[13.5px]">{label}</span>
       <div className="grid grid-cols-3 gap-2">
         {options.map((o) => (
-          <button key={o.id} type="button" onClick={() => onChange(o.id)}
+          <button key={o.id} type="button" aria-pressed={value === o.id} onClick={() => onChange(o.id)}
             className={cx('flex flex-col gap-[5px] rounded-[10px] border-[1.5px] p-1 pb-1.5 text-[12px]', value === o.id ? 'border-accent bg-card' : 'border-transparent bg-transparent hover:bg-panel-2')}>
-            <span className="grid h-[38px] place-items-center rounded-[7px] text-[15px]" style={o.previewStyle}>{o.preview}</span>
+            <span className="grid h-[38px] w-full place-items-center rounded-[7px] text-[15px]" style={o.previewStyle}>{o.preview}</span>
             {o.label}
           </button>
         ))}
@@ -131,16 +146,34 @@ export function TextField({ label, value, onChange, placeholder, autoFocus }: { 
 }
 
 export function Modal({ title, children, onClose, width = 480 }: { title: ReactNode; children: ReactNode; onClose?: () => void; width?: number }) {
+  const titleId = useId();
+  const dialog = useRef<HTMLDivElement>(null);
+  const returnFocus = useRef(document.activeElement as HTMLElement | null);
+  const close = useRef(onClose);
+  close.current = onClose;
   useEffect(() => {
-    if (!onClose) return;
-    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const previous = returnFocus.current;
+    const focusable = () => [...dialog.current!.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]')].filter((el) => el.offsetParent !== null);
+    const initial = dialog.current?.querySelector<HTMLElement>('[autofocus], input:not([type="hidden"]):not([type="range"]):not([type="color"])') ?? focusable()[0] ?? dialog.current;
+    initial?.focus();
+    const k = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && close.current) { e.preventDefault(); e.stopPropagation(); close.current(); }
+      if (e.key !== 'Tab') return;
+      const items = focusable(), first = items[0], last = items[items.length - 1];
+      if (!first) { e.preventDefault(); dialog.current?.focus(); }
+      else if (e.shiftKey && (document.activeElement === first || document.activeElement === dialog.current)) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
     window.addEventListener('keydown', k);
-    return () => window.removeEventListener('keydown', k);
-  }, [onClose]);
+    return () => { window.removeEventListener('keydown', k); if (previous?.isConnected) previous.focus(); };
+  }, []);
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-(--scrim)" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
-      <div role="dialog" aria-modal className="flex max-h-[92vh] max-w-[92vw] flex-col gap-5 overflow-auto rounded-2xl border border-line bg-bg p-7 shadow-[0_24px_80px_rgba(0,0,0,.3)]" style={{ width }}>
-        <div className="text-[22px] font-semibold tracking-[-0.015em]">{title}</div>
+      <div ref={dialog} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className="flex max-h-[92dvh] max-w-[92vw] flex-col gap-5 overflow-auto rounded-2xl border border-line bg-bg p-5 sm:p-7 shadow-[0_24px_80px_rgba(0,0,0,.3)]" style={{ width }}>
+        <div className="flex items-center justify-between gap-3">
+          <h2 id={titleId} className="text-[22px] font-semibold tracking-[-0.015em]">{title}</h2>
+          {onClose && <button type="button" aria-label="Close dialog" onClick={onClose} className="grid h-9 w-9 flex-none place-items-center rounded-lg bg-panel text-xl hover:bg-panel-2">×</button>}
+        </div>
         {children}
       </div>
     </div>
@@ -151,7 +184,7 @@ export function PillChoice<T extends string>({ value, options, onChange, mono }:
   return (
     <div className="flex flex-wrap gap-1.5">
       {options.map(([v, l]) => (
-        <button key={v} type="button" onClick={() => onChange(v)}
+        <button key={v} type="button" aria-pressed={value === v} onClick={() => onChange(v)}
           className={cx('h-[38px] flex-1 rounded-[9px] px-3.5 text-[13px] font-medium', mono && 'num',
             value === v ? 'border border-inverse bg-inverse text-on-inverse' : 'border border-line-strong bg-card text-text hover:bg-panel')}>
           {l}

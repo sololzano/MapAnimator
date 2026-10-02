@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { runtime } from '../../core/runtime';
 import { formatTime } from '../../core/timing';
 import type { Pace, Scene } from '../../core/model';
 import { currentScene, useApp } from '../../state/store';
-import { cx } from '../../ui/controls';
+import { Button, Modal, Segmented, Slider } from '../../ui/controls';
 import { Icon } from '../../ui/icons';
 
 const LABEL_W = 108;
@@ -33,10 +33,17 @@ export function togglePlay() {
   const st = useApp.getState(), sc = currentScene(st);
   if (!sc) return;
   if (st.playing) { st.set({ playing: false }); return; }
+  if (sc.points.length < 2) { st.say('Add at least two points to preview your animation'); return; }
   const T = runtime(sc).tm.T;
   let t = st.tm < 0 ? T : Math.min(st.tm, T);
   if (t >= T - 0.02) t = 0;
-  st.set({ playing: true, tm: t });
+  st.set({ playing: true, tm: t, step: st.step < 4 ? 5 : st.step, sel: -1, selSign: null });
+}
+
+function SeekControl({ T }: { T: number }) {
+  const tm = useApp((s) => s.tm);
+  const set = useApp((s) => s.set);
+  return <input aria-label="Animation playhead" aria-valuetext={formatTime(tm < 0 ? T : Math.min(tm, T))} className="sr-only" type="range" min={0} max={T} step={0.1} value={tm < 0 ? T : Math.min(tm, T)} onChange={(e) => set({ tm: Number(e.target.value), playing: false })} />;
 }
 
 function TimeReadout({ T }: { T: number }) {
@@ -107,23 +114,25 @@ export function Timeline() {
     : `Follow line · ${cam.orient === 'heading' ? 'heading up' : 'north up'} · ×${(2 ** cam.zoom).toFixed(1)}`;
 
   return (
-    <div className="flex h-[clamp(150px,26vh,216px)] flex-none flex-col border-t border-line bg-bg">
-      <div className="flex h-[42px] flex-none items-center gap-3 border-b border-line px-3.5">
-        <button title="Back to start" onClick={() => set({ tm: 0, playing: false })} className="grid h-8 w-8 place-items-center rounded-lg border border-line bg-card p-0 hover:bg-panel">
+    <div className="editor-timeline flex h-[clamp(150px,26vh,216px)] flex-none flex-col border-t border-line bg-bg">
+      <div className="timeline-toolbar flex h-[48px] flex-none items-center gap-2 border-b border-line px-3.5">
+        <button title="Back to start" aria-label="Back to start" disabled={scene.points.length < 2} onClick={() => set({ tm: 0, playing: false })} className="grid h-8 w-8 flex-none place-items-center rounded-lg border border-line bg-card p-0 hover:bg-panel disabled:opacity-40">
           <Icon name="rewind" size={14} strokeWidth={2} />
         </button>
-        <button onClick={togglePlay} className="flex h-8 items-center gap-2 rounded-lg border-0 bg-inverse pr-4 pl-3 text-[13px] font-semibold text-on-inverse">
+        <button title="Preview animation (Space)" disabled={scene.points.length < 2} onClick={togglePlay} className="flex h-8 flex-none items-center gap-2 rounded-lg border-0 bg-inverse pr-3 pl-3 text-[13px] font-semibold text-on-inverse disabled:opacity-40">
           <Icon name={playing ? 'pause' : 'play'} size={13} strokeWidth={playing ? 3 : 1.5} className={playing ? '' : 'fill-current'} />
-          {playing ? 'Pause' : 'Play'}
+          {playing ? 'Pause' : 'Preview'}
         </button>
         <TimeReadout T={T} />
-        <div className="mx-1 h-5 w-px bg-line" />
+        <div className="flex-1" />
         <MotionBar />
       </div>
-      <div ref={tlRef} onMouseDown={onDown} className="relative flex min-h-0 flex-1 cursor-col-resize flex-col select-none">
+      {scene.points.length < 2 ? <div className="grid flex-1 place-items-center px-4 text-center text-[13px] text-muted">Your animation timeline will appear after you add two route points.</div> :
+      <div ref={tlRef} onMouseDown={onDown} title="Drag to scrub your animation" className="relative flex min-h-0 flex-1 cursor-col-resize flex-col overflow-hidden select-none focus-within:ring-2 focus-within:ring-inset focus-within:ring-accent">
+        <SeekControl T={T} />
         <div className="grid h-6 flex-none" style={{ gridTemplateColumns: `${LABEL_W}px 1fr` }}>
           <div />
-          <div className="relative border-b border-line">
+          <div className="timeline-ticks relative border-b border-line">
             {ticks.map((t) => (
               <div key={t} className="num absolute top-0 bottom-0 border-l border-line pt-[5px] pl-[5px] text-[10px] text-muted" style={{ left: pct(t) }}>{t}s</div>
             ))}
@@ -152,7 +161,7 @@ export function Timeline() {
           })}
         </Track>
         <Playhead T={T} />
-      </div>
+      </div>}
     </div>
   );
 }
@@ -165,40 +174,23 @@ function MotionBar() {
   const update = useApp((s) => s.updateScene);
   const ex = scene.exp;
   const auto = runtime(scene).tm.auto;
+  const [open, setOpen] = useState(false);
   const setE = <K extends keyof Scene['exp']>(k: K, v: Scene['exp'][K]) => update((s) => { s.exp[k] = v; }, 'exp-' + String(k));
-  const stepper = (label: string, k: 'pre' | 'post', max: number) => (
-    <div className="flex items-center gap-1 text-[12px] whitespace-nowrap text-text-2" title={`Hold the ${k === 'pre' ? 'first' : 'last'} frame`}>
-      {label}
-      <button className="grid h-6 w-6 place-items-center rounded-md border border-line bg-card p-0 hover:bg-panel" onClick={() => setE(k, Math.max(0, ex[k] - 0.5))}>−</button>
-      <span className="num w-8 text-center font-medium text-text">{ex[k]} s</span>
-      <button className="grid h-6 w-6 place-items-center rounded-md border border-line bg-card p-0 hover:bg-panel" onClick={() => setE(k, Math.min(max, ex[k] + 0.5))}>+</button>
-    </div>
-  );
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-4 overflow-x-auto">
-      <div className="flex items-center gap-2 text-[12px] text-text-2" title={`At Normal pace the line takes ${auto.toFixed(1)} s, based on the route's distance and number of points`}>
-        Pace
-        <div className="flex gap-0.5 rounded-lg bg-panel-2 p-0.5">
-          {PACES.map(([v, l]) => (
-            <button key={v} onClick={() => setE('pace', v)}
-              className={cx('h-6 rounded-md border-0 px-2.5 text-[12px] whitespace-nowrap', ex.pace === v ? 'bg-card font-semibold text-text shadow-[0_1px_2px_rgba(0,0,0,.15)]' : 'bg-transparent text-text-2 hover:text-text')}>{l}</button>
-          ))}
-        </div>
+    <>
+      <Button className="h-8 flex-none px-2.5" onClick={() => { useApp.getState().set({ playing: false }); setOpen(true); }} aria-haspopup="dialog">Timing<span className="timing-summary text-[12px] font-normal text-muted">· {PACES.find(([v]) => v === ex.pace)?.[1]}</span></Button>
+      {open && <Modal title="Animation timing" onClose={() => setOpen(false)}>
+        <Segmented label="Pace" value={ex.pace} options={PACES} onChange={(v) => setE('pace', v)} />
+        <p className="text-[13px] text-text-2">Normal pace draws this route in {auto.toFixed(1)} seconds. Signs and holds add to the total duration.</p>
         {ex.pace === 'custom' && (
-          <>
-            <input type="range" min={0.25} max={4} step={0.05} value={ex.speed} onChange={(e) => setE('speed', parseFloat(e.target.value))} className="w-24!" />
-            <span className="num w-10 font-medium text-text">×{ex.speed.toFixed(2)}</span>
-          </>
+          <Slider label="Playback speed" min={0.25} max={4} step={0.05} value={ex.speed} onChange={(v) => setE('speed', v)} format={(v) => `×${v.toFixed(2)}`} />
         )}
-      </div>
-      <label className="flex items-center gap-2 text-[12px] whitespace-nowrap text-text-2" title="Ease in and out of the drawing">
-        Ease
-        <input type="range" min={0} max={100} step={5} value={ex.ease} onChange={(e) => setE('ease', parseFloat(e.target.value))} className="w-20!" />
-        <span className="num w-8 font-medium text-text">{ex.ease}%</span>
-      </label>
-      {stepper('Hold start', 'pre', 5)}
-      {stepper('end', 'post', 8)}
-    </div>
+        <Slider label="Ease in & out" min={0} max={100} step={5} value={ex.ease} onChange={(v) => setE('ease', v)} format={(v) => `${v}%`} />
+        <Slider label="Hold first frame" min={0} max={5} step={0.5} value={ex.pre} onChange={(v) => setE('pre', v)} format={(v) => `${v} s`} />
+        <Slider label="Hold last frame" min={0} max={8} step={0.5} value={ex.post} onChange={(v) => setE('post', v)} format={(v) => `${v} s`} />
+        <Button variant="primary" className="h-10 self-end px-6" onClick={() => setOpen(false)}>Done</Button>
+      </Modal>}
+    </>
   );
 }
 

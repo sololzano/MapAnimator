@@ -1,13 +1,14 @@
 import { Map as MlMap, type JumpToOptions, type MapMouseEvent } from 'maplibre-gl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fromMerc } from '../../core/geo';
-import { logicalSize, outputSize, removePoint, rid, signPointIndex, type Ratio, type Sign } from '../../core/model';
+import { logicalSize, removePoint, rid, signPointIndex, type Ratio, type Sign } from '../../core/model';
 import { overviewWeight, zoomAt } from '../../core/camera';
 import { evaluate, runtime } from '../../core/runtime';
 import { loadCountries, visitedCountries } from '../../map/countries';
 import { attributionText, buildStyle } from '../../map/style';
 import { drawHandles, drawOverlay, midpoint, type Rect, type SignHit } from '../../render/overlay';
 import { onPhotoLoaded } from '../../render/photos';
+import { exportDims, exportFps } from '../../render/exporter';
 import { currentScene, useApp } from '../../state/store';
 import { cx } from '../../ui/controls';
 import { Icon } from '../../ui/icons';
@@ -40,6 +41,7 @@ export function Stage() {
   const uiTheme = useApp((s) => s.uiTheme);
   const showNumbers = useApp((s) => s.showNumbers);
   const hasHistory = useApp((s) => s.history.past.length > 0);
+  const hasFuture = useApp((s) => s.history.future.length > 0);
   const set = useApp((s) => s.set);
 
   const stageRef = useRef<HTMLDivElement>(null);
@@ -49,6 +51,7 @@ export function Stage() {
   const [size, setSize] = useState<Size>({ w: 1000, h: 560 });
   const [countries, setCountries] = useState<Awaited<ReturnType<typeof loadCountries>> | null>(null);
   const [styleReady, setStyleReady] = useState(false);
+  const [mapError, setMapError] = useState(false);
 
   const rt = useMemo(() => runtime(scene), [scene]);
   const [lw] = logicalSize(scene.ratio);
@@ -189,6 +192,8 @@ export function Stage() {
     if (import.meta.env.DEV) (window as unknown as { __map: MlMap }).__map = map;
     map.on('render', draw);
     map.on('load', () => { setStyleReady(true); fit(false); });
+    map.on('style.load', () => setStyleReady(true));
+    map.on('error', () => setMapError(true));
     const touched = (e: { originalEvent?: unknown }) => { if (e.originalEvent) userMoved.current = true; };
     map.on('dragstart', touched);
     map.on('zoomstart', touched);
@@ -420,27 +425,39 @@ export function Stage() {
 
   const updateScene = useApp((s) => s.updateScene);
   const undo = useApp((s) => s.undo);
-  const toolBtn = (title: string, icon: string, act: () => void, on = false, disabled = false) => (
-    <button key={title} title={title} onClick={act} disabled={disabled}
-      className={cx('grid h-[38px] w-[38px] place-items-center rounded-lg border-0 p-0 disabled:pointer-events-none disabled:opacity-35', on ? 'bg-inverse text-on-inverse' : 'bg-transparent text-text hover:bg-panel-2')}>
-      <Icon name={icon} size={20} />
+  const redo = useApp((s) => s.redo);
+  const toolBtn = (title: string, icon: string, act: () => void, on = false, disabled = false, label?: string) => (
+    <button key={title} title={title} aria-label={title} aria-pressed={label ? on : undefined} onClick={act} disabled={disabled}
+      className={cx('flex h-[36px] items-center justify-center gap-1.5 rounded-lg border-0 disabled:pointer-events-none disabled:opacity-35', label ? 'px-2.5 text-[12px] font-semibold' : 'w-[36px] p-0', on ? 'bg-inverse text-on-inverse' : 'bg-transparent text-text hover:bg-panel-2')}>
+      <Icon name={icon} size={label ? 16 : 19} />{label}
     </button>
   );
   const sep = (k: string) => <div key={k} className="mx-[5px] mt-[3px] mb-[5px] h-px bg-line" />;
-  const [ow, oh] = outputSize(scene.ratio, scene.exp.res);
+  const [ow, oh] = exportDims(scene);
 
   return (
-    <div ref={stageRef} className="relative min-h-0 flex-1 overflow-hidden select-none" style={{ background: 'var(--panel-2)' }}>
+    <div ref={stageRef} className="map-stage relative min-h-0 flex-1 overflow-hidden select-none" style={{ background: 'var(--panel-2)' }}>
       {/* Inline position: MapLibre's stylesheet sets .maplibregl-map { position: relative }. */}
       <div ref={mapDivRef} style={{ position: 'absolute', inset: 0 }} />
       <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 h-full w-full" />
 
       {/* Export frame: everything outside is cropped. */}
       <div className="pointer-events-none absolute rounded-[3px] border-2 border-[#eff1f5]" style={{ left: frame.x, top: frame.y, width: frame.w, height: frame.h, boxShadow: '0 0 0 4000px rgba(35,38,52,.5)' }}>
-        <div className="num absolute bottom-full left-[-2px] mb-2 flex items-center gap-2 rounded-md bg-[rgba(35,38,52,.8)] px-[9px] py-1 text-[11px] font-medium whitespace-nowrap text-[#eff1f5]">
-          {scene.ratio} · {ow}×{oh} · {scene.exp.fps} fps · {camMode ? 'camera view' : 'outside is cropped'}
+        <div className="frame-caption num absolute bottom-full left-[-2px] mb-2 flex items-center gap-1 rounded-md bg-[rgba(35,38,52,.8)] px-[9px] py-1 text-[11px] font-medium whitespace-nowrap text-[#eff1f5]">
+          {scene.ratio} · {ow}×{oh} · {exportFps(scene)} fps <span className="max-[760px]:hidden">· {camMode ? 'camera view' : 'outside is cropped'}</span>
         </div>
       </div>
+
+      {(mapError || !styleReady) && <div role="status" className="absolute top-3.5 right-3.5 max-w-[240px] rounded-lg border border-line bg-bg px-3 py-2 text-[12px] shadow-(--shadow)">
+        {mapError ? <>
+          Map data could not load. Check your connection.
+          <button className="ml-2 font-semibold text-accent underline" onClick={() => {
+            setMapError(false); setStyleReady(false);
+            const st = L.current;
+            mapRef.current?.setStyle(buildStyle(st.scene.look, { scale: Math.max(0.6, st.scale), countriesUrl: countries?.url, visited }), { diff: false });
+          }}>Retry</button>
+        </> : 'Loading map…'}
+      </div>}
 
       {camMode && (
         <div className="absolute top-3.5 left-3.5 flex flex-col gap-0.5 rounded-xl border border-line bg-bg p-1 shadow-(--shadow)">
@@ -449,14 +466,16 @@ export function Stage() {
           {toolBtn('Reset the overview to fit the whole route', 'fit', () => updateScene((s) => { s.cam.view = null; }), false, !scene.cam.view)}
         </div>
       )}
-      {!camMode && (
-        <div className="absolute top-3.5 left-3.5 flex flex-col gap-0.5 rounded-xl border border-line bg-bg p-1 shadow-(--shadow)">
+      {!camMode && <>
+        {step === 1 && <div role="group" aria-label="Route tools" className="absolute top-3.5 left-3.5 flex gap-0.5 rounded-xl border border-line bg-bg p-1 shadow-(--shadow)">
+            {toolBtn('Draw points (click the map)', 'draw', () => set({ tool: 'draw', playing: false, tm: -1 }), tool === 'draw', false, 'Draw')}
+            {toolBtn('Move / insert points', 'move', () => set({ tool: 'edit', playing: false, tm: -1 }), tool === 'edit', false, 'Edit')}
+            {toolBtn('Pan — or hold the mouse wheel button', 'pan', () => set({ tool: 'pan' }), tool === 'pan', false, 'Pan')}
+        </div>}
+        <div className={cx('absolute left-3.5 flex flex-col gap-0.5 rounded-xl border border-line bg-bg p-1 shadow-(--shadow)', step === 1 ? 'top-[68px]' : 'top-3.5')}>
           {step === 1 && [
-            toolBtn('Draw points (click the map)', 'draw', () => set({ tool: 'draw' }), tool === 'draw'),
-            toolBtn('Move / insert points', 'move', () => set({ tool: 'edit' }), tool === 'edit'),
-            toolBtn('Pan — or hold the mouse wheel button', 'pan', () => set({ tool: 'pan' }), tool === 'pan'),
-            sep('s1'),
             toolBtn('Undo (Ctrl+Z)', 'undo', undo, false, !hasHistory),
+            toolBtn('Redo (Ctrl+Shift+Z)', 'redo', redo, false, !hasFuture),
             toolBtn('Delete selected point', 'trash', () => { updateScene((s) => removePoint(s, sel)); set({ sel: -1 }); }, false, sel < 0),
           ]}
           {step !== 1 && toolBtn('Pan — drag the map, or hold the mouse wheel button', 'pan', () => {}, true)}
@@ -465,7 +484,12 @@ export function Stage() {
           {toolBtn('Zoom out', 'zoomOut', () => stageBus.emit('zoom', -1))}
           {toolBtn('Fit to route', 'fit', () => fit(true))}
         </div>
-      )}
+      </>}
+
+      {step === 1 && scene.points.length < 2 && <div className="pointer-events-none absolute right-3 bottom-10 left-3 mx-auto max-w-[320px] rounded-xl border border-line bg-bg/95 px-4 py-3 text-center shadow-(--shadow)">
+        <div className="text-[15px] font-semibold">{scene.points.length ? 'Add your next point' : 'Draw your route'}</div>
+        <p className="mt-1 text-[12.5px] text-text-2">{scene.points.length ? 'Click another place on the map to connect your route.' : 'Zoom to your starting place, select Draw, then click the map. You can also import a GPX, KML or Google Timeline file.'}</p>
+      </div>}
 
       <div className="pointer-events-none absolute bottom-3 left-3.5 rounded bg-[rgba(35,38,52,.55)] px-1.5 py-0.5 text-[10.5px] text-[#eff1f5]">
         {camMode
@@ -474,7 +498,7 @@ export function Stage() {
             : 'Following the line · scroll to zoom at the playhead · right-drag to tilt'
           : 'Scroll to zoom · hold the wheel button to pan · right-drag to rotate'}
       </div>
-      {toast && <div className="absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full bg-inverse px-4 py-[9px] text-[13px] text-on-inverse shadow-[0_8px_24px_rgba(0,0,0,.3)]">{toast}</div>}
+      {toast && <div role="status" className="absolute bottom-5 left-1/2 max-w-[90%] -translate-x-1/2 rounded-xl bg-inverse px-4 py-[9px] text-center text-[13px] text-on-inverse shadow-[0_8px_24px_rgba(0,0,0,.3)]">{toast}</div>}
     </div>
   );
 }
