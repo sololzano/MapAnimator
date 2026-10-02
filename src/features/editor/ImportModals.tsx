@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import { makeSign, type RoutePoint, type Sign } from '../../core/model';
 import { shortDate, toRoutePoints, type RouteImport } from '../../importers';
-import { dayHistogram, filterTimeline, type ParsedTimeline } from '../../importers/timeline';
+import { TRAVEL_MODES, dayHistogram, filterTimeline, modeDistances, type ParsedTimeline, type TravelMode } from '../../importers/timeline';
+import { fmtDist } from './Sidebar';
+import { cx } from '../../ui/controls';
 import { Button, Info, Modal, Segmented, Slider, Toggle } from '../../ui/controls';
 
 export interface ImportResult { points: RoutePoint[]; signs: Sign[] }
@@ -61,7 +63,13 @@ export function TimelineImportModal({ tl, fileName, onDone, onCancel }: { tl: Pa
   const [detail, setDetail] = useState<'clean' | 'raw'>(tl.hasSemantic ? 'clean' : 'raw');
   const [max, setMax] = useState(80);
   const [signs, setSigns] = useState(true);
-  const filtered = useMemo(() => (from && to ? filterTimeline(tl, from <= to ? from : to, from <= to ? to : from, detail) : { pts: [], stops: [] }), [tl, from, to, detail]);
+  // Travel modes to keep — everything by default.
+  const [modes, setModes] = useState<Set<TravelMode>>(() => new Set(tl.modes));
+  const [lo, hi] = from <= to ? [from, to] : [to, from];
+  const filtered = useMemo(() => (from && to ? filterTimeline(tl, lo, hi, detail, modes) : { pts: [], stops: [] }), [tl, from, to, lo, hi, detail, modes]);
+  const dist = useMemo(() => (from && to ? modeDistances(tl, lo, hi, detail) : new Map<TravelMode, number>()), [tl, from, to, lo, hi, detail]);
+  const shown = TRAVEL_MODES.filter(([m]) => tl.modes.includes(m) && (dist.get(m) ?? 0) > 0);
+  const toggle = (m: TravelMode) => setModes((cur) => { const n = new Set(cur); if (n.has(m)) n.delete(m); else n.add(m); return n; });
   const peak = Math.max(1, ...hist.map((d) => d.count));
   const noDates = !days.length;
 
@@ -103,6 +111,29 @@ export function TimelineImportModal({ tl, fileName, onDone, onCancel }: { tl: Pa
         </>
       )}
       {tl.hasSemantic && tl.hasRaw && <Segmented label="Detail" value={detail} options={[['clean', 'Clean (trips & visits)'], ['raw', 'Detailed (raw GPS)']]} onChange={setDetail} />}
+      {shown.length > 1 && (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-end justify-between">
+            <span className="text-[13.5px]">Travel modes</span>
+            <span className="flex gap-3 text-[12px]">
+              <button className="border-0 bg-transparent p-0 text-accent hover:underline" onClick={() => setModes(new Set(tl.modes))}>All</button>
+              <button className="border-0 bg-transparent p-0 text-accent hover:underline" onClick={() => setModes(new Set())}>None</button>
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {shown.map(([m, label]) => {
+              const on = modes.has(m);
+              return (
+                <button key={m} onClick={() => toggle(m)} aria-pressed={on}
+                  className={cx('flex h-8 items-center gap-2 rounded-full border px-3 text-[12.5px]', on ? 'border-accent bg-accent-soft font-semibold text-text' : 'border-dashed border-line-x bg-transparent text-muted')}>
+                  {label}<span className="num text-[11px] font-normal opacity-80">{fmtDist(dist.get(m) ?? 0)}</span>
+                </button>
+              );
+            })}
+          </div>
+          <Info>Unticked legs are left out; stops are always kept. Where a leg is skipped, the line goes straight from the last kept point to the next.</Info>
+        </div>
+      )}
       <Slider label="Editable points" value={Math.min(max, Math.max(2, filtered.pts.length))} min={2} max={Math.max(3, Math.min(400, filtered.pts.length))} step={1}
         format={(v) => `${Math.min(v, filtered.pts.length)} of ${filtered.pts.length.toLocaleString()}`} onChange={setMax} />
       {filtered.stops.length > 0 && <Toggle label={`Add a sign at each stop (${Math.min(30, filtered.stops.length)})`} value={signs} onChange={setSigns} />}

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { dayHistogram, filterTimeline, parseLatLng, parseTimelineJson } from '../src/importers/timeline';
+import { dayHistogram, filterTimeline, modeCategory, modeDistances, parseLatLng, parseTimelineJson } from '../src/importers/timeline';
 
 const fx = (n: string) => JSON.parse(readFileSync(new URL(`./fixtures/${n}`, import.meta.url), 'utf8'));
 
@@ -33,5 +33,32 @@ describe('google timeline parsers (synthetic fixtures)', () => {
   });
   it('rejects unrelated JSON', () => {
     expect(() => parseTimelineJson({ hello: 'world' })).toThrow();
+  });
+  it('maps Google activity types to travel modes', () => {
+    expect(modeCategory('IN_PASSENGER_VEHICLE')).toBe('car');
+    expect(modeCategory('in passenger vehicle')).toBe('car');
+    expect(modeCategory('WALKING')).toBe('walk');
+    expect(modeCategory('IN_SUBWAY')).toBe('train');
+    expect(modeCategory('FLYING')).toBe('plane');
+    expect(modeCategory('IN_FERRY')).toBe('boat');
+    expect(modeCategory('CYCLING')).toBe('bike');
+    expect(modeCategory('UNKNOWN_ACTIVITY_TYPE')).toBe('other');
+  });
+  it('untagged path points inherit the mode of the activity covering them', () => {
+    const tl = parseTimelineJson(fx('timeline-android.json'));
+    expect(tl.modes).toEqual(['car', 'train']);
+    const pathPts = tl.samples.filter((s) => s.kind === 'path' && s.day === '2025-10-03');
+    expect(pathPts.every((s) => s.mode === 'car')).toBe(true);
+    expect(tl.samples.find((s) => s.kind === 'raw')!.mode).toBe('car');
+  });
+  it('filters legs by travel mode but keeps stops', () => {
+    const tl = parseTimelineJson(fx('timeline-android.json'));
+    const all = filterTimeline(tl, '2025-10-03', '2025-10-04', 'clean');
+    const noCar = filterTimeline(tl, '2025-10-03', '2025-10-04', 'clean', new Set(['train']));
+    expect(noCar.pts.length).toBeLessThan(all.pts.length);
+    expect(noCar.stops.length).toBe(all.stops.length);
+    const d = modeDistances(tl, '2025-10-03', '2025-10-04', 'clean');
+    expect(d.get('car')! / 1000).toBeGreaterThan(50);
+    expect(d.get('train')! / 1000).toBeGreaterThan(80);
   });
 });

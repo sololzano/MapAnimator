@@ -6,6 +6,8 @@
 //  - Legacy Takeout Semantic history:   { timelineObjects: [ { placeVisit | activitySegment } ] }
 //  - Simple JSON:                       [ { lat, lon|lng, time|date, name } ]  (or { points: [...] })
 
+import { haversine } from '../core/geo';
+
 export type SampleKind = 'visit' | 'path' | 'raw';
 
 export interface Sample {
@@ -17,14 +19,40 @@ export interface Sample {
   lng: number;
   kind: SampleKind;
   name?: string;
-  mode?: string;
+  /** Travel mode (path and raw samples; inferred from the covering activity when untagged). */
+  mode?: TravelMode;
 }
+
+export type TravelMode = 'car' | 'walk' | 'bike' | 'bus' | 'train' | 'plane' | 'boat' | 'other';
+
+export const TRAVEL_MODES: [TravelMode, string][] = [
+  ['car', 'Car'], ['walk', 'Walking'], ['bike', 'Bike'], ['bus', 'Bus'], ['train', 'Train'],
+  ['plane', 'Plane'], ['boat', 'Boat'], ['other', 'Other / unknown'],
+];
+
+/** Google activity types (Android IN_PASSENGER_VEHICLE, iOS "in passenger vehicle", Takeout FLYING …) → mode. */
+export function modeCategory(raw: unknown): TravelMode {
+  const t = typeof raw === 'string' ? raw.toLowerCase().replace(/_/g, ' ') : '';
+  if (!t) return 'other';
+  if (/fly|plane|air/.test(t)) return 'plane';
+  if (/train|subway|tram|rail|metro|underground|cable car|funicular/.test(t)) return 'train';
+  if (/bus|coach/.test(t)) return 'bus';
+  if (/ferry|boat|sail|kayak|row|surf/.test(t)) return 'boat';
+  if (/cycl|bicycl|bike/.test(t)) return 'bike';
+  if (/walk|foot|run|hik|jog/.test(t)) return 'walk';
+  if (/vehicle|car|taxi|driv|motor|scooter/.test(t)) return 'car';
+  return 'other';
+}
+
+interface Interval { a: number; b: number; mode: TravelMode }
 
 export interface ParsedTimeline {
   format: 'android' | 'ios' | 'records' | 'semantic' | 'simple';
   samples: Sample[];
   hasSemantic: boolean;
   hasRaw: boolean;
+  /** Travel modes present in the file. */
+  modes: TravelMode[];
 }
 
 /** "48.1234567°, 11.5678901°" | "geo:48.1,11.5" | "48.1,11.5" */
@@ -64,14 +92,10 @@ function push(out: Sample[], when: [number, string] | null, ll: [number, number]
   out.push({ t: when[0], day: when[1], lat, lng, kind, ...extra });
 }
 
-function modeName(s: unknown): string | undefined {
-  return typeof s === 'string' ? s.toLowerCase().replace(/_/g, ' ') : undefined;
-}
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type J = any;
 
-function parseAndroid(j: J): Sample[] {
+function parseAndroid(j: J, iv: Interval[]): Sample[] {
   const out: Sample[] = [];
   for (const seg of j.semanticSegments ?? []) {
     const start = parseTime(seg.startTime), end = parseTime(seg.endTime);
@@ -81,7 +105,8 @@ function parseAndroid(j: J): Sample[] {
       if (end && end[0] !== start?.[0]) push(out, end, ll, 'visit');
     }
     if (seg.activity) {
-      const mode = modeName(seg.activity.topCandidate?.type);
+      const mode = modeCategory(seg.activity.topCandidate?.type);
+      if (start && end) iv.push({ a: start[0], b: end[0], mode });
       push(out, start, parseLatLng(seg.activity.start?.latLng), 'path', { mode });
       push(out, end, parseLatLng(seg.activity.end?.latLng), 'path', { mode });
     }
@@ -94,7 +119,7 @@ function parseAndroid(j: J): Sample[] {
   return out;
 }
 
-function parseIOS(arr: J[]): Sample[] {
+function parseIOS(arr: J[], iv: Interval[]): Sample[] {
   const out: Sample[] = [];
   for (const seg of arr) {
     const start = parseTime(seg.startTime), end = parseTime(seg.endTime);
@@ -104,7 +129,8 @@ function parseIOS(arr: J[]): Sample[] {
       if (end) push(out, end, ll, 'visit');
     }
     if (seg.activity) {
-      const mode = modeName(seg.activity.topCandidate?.type);
+      const mode = modeCategory(seg.activity.topCandidate?.type);
+      if (start && end) iv.push({ a: start[0], b: end[0], mode });
       push(out, start, parseLatLng(seg.activity.start), 'path', { mode });
       push(out, end, parseLatLng(seg.activity.end), 'path', { mode });
     }
@@ -137,7 +163,7 @@ function parseRecords(j: J): Sample[] {
   return out;
 }
 
-function parseSemantic(j: J): Sample[] {
+function parseSemantic(j: J, iv: Interval[]): Sample[] {
   const out: Sample[] = [];
   for (const o of j.timelineObjects ?? []) {
     if (o.placeVisit) {
@@ -147,9 +173,10 @@ function parseSemantic(j: J): Sample[] {
       push(out, parseTime(v.duration?.endTimestamp ?? v.duration?.endTimestampMs), ll, 'visit', { name });
     }
     if (o.activitySegment) {
-      const a = o.activitySegment, mode = modeName(a.activityType);
+      const a = o.activitySegment, mode = modeCategory(a.activityType);
       const st = parseTime(a.duration?.startTimestamp ?? a.duration?.startTimestampMs);
       const en = parseTime(a.duration?.endTimestamp ?? a.duration?.endTimestampMs);
+      if (st && en) iv.push({ a: st[0], b: en[0], mode });
       push(out, st, [e7(a.startLocation?.latitudeE7), e7(a.startLocation?.longitudeE7)], 'path', { mode });
       const raw = a.simplifiedRawPath?.points ?? [];
       for (const p of raw) push(out, parseTime(p.timestamp ?? p.timestampMs), [e7(p.latE7), e7(p.lngE7)], 'path', { mode });
@@ -179,21 +206,41 @@ function parseSimple(arr: J[]): Sample[] {
 export function parseTimelineJson(j: J): ParsedTimeline {
   let format: ParsedTimeline['format'];
   let samples: Sample[];
-  if (j && Array.isArray(j.semanticSegments)) { format = 'android'; samples = parseAndroid(j); }
-  else if (j && Array.isArray(j.timelineObjects)) { format = 'semantic'; samples = parseSemantic(j); }
+  const iv: Interval[] = [];
+  if (j && Array.isArray(j.semanticSegments)) { format = 'android'; samples = parseAndroid(j, iv); }
+  else if (j && Array.isArray(j.timelineObjects)) { format = 'semantic'; samples = parseSemantic(j, iv); }
   else if (j && Array.isArray(j.locations)) { format = 'records'; samples = parseRecords(j); }
-  else if (Array.isArray(j) && j.some((s) => s && (s.visit || s.activity || s.timelinePath))) { format = 'ios'; samples = parseIOS(j); }
+  else if (Array.isArray(j) && j.some((s) => s && (s.visit || s.activity || s.timelinePath))) { format = 'ios'; samples = parseIOS(j, iv); }
   else {
     const arr = Array.isArray(j) ? j : j?.points ?? j?.timeline ?? j?.stops ?? null;
     if (!Array.isArray(arr)) throw new Error('This JSON is not a Google Timeline export or a list of points.');
     format = 'simple'; samples = parseSimple(arr);
   }
   samples.sort((a, b) => a.t - b.t);
+  assignModes(samples, iv);
+  const present = new Set(samples.filter((s) => s.kind !== 'visit').map((s) => s.mode ?? 'other'));
   return {
     format, samples,
     hasSemantic: samples.some((s) => s.kind !== 'raw'),
     hasRaw: samples.some((s) => s.kind === 'raw'),
+    modes: TRAVEL_MODES.map(([m]) => m).filter((m) => present.has(m)),
   };
+}
+
+/** Untagged path/raw samples take the mode of the activity whose time span covers them. */
+function assignModes(samples: Sample[], iv: Interval[]) {
+  if (!iv.length) return;
+  iv.sort((x, y) => x.a - y.a);
+  // Sweep: samples and intervals are both time-ordered.
+  let k = 0;
+  const open: Interval[] = [];
+  for (const s of samples) {
+    if (s.kind === 'visit' || s.mode) continue;
+    while (k < iv.length && iv[k].a <= s.t) open.push(iv[k++]);
+    for (let i = open.length - 1; i >= 0; i--) if (open[i].b < s.t) open.splice(i, 1);
+    const hit = open.find((x) => x.mode !== 'other') ?? open[0];
+    if (hit) s.mode = hit.mode;
+  }
 }
 
 export interface DayCount { day: string; count: number; visits: number }
@@ -218,14 +265,32 @@ export interface FilteredRoute {
   stops: Stop[];
 }
 
+function selectSamples(tl: ParsedTimeline, from: string, to: string, detail: 'clean' | 'raw'): Sample[] {
+  const useRaw = detail === 'raw' || !tl.hasSemantic;
+  return tl.samples.filter((s) => (!s.day || (s.day >= from && s.day <= to)) && (s.kind !== 'raw' || useRaw));
+}
+
+/** Distance travelled per mode within the dates (each leg counts for the mode of its moving end). */
+export function modeDistances(tl: ParsedTimeline, from: string, to: string, detail: 'clean' | 'raw'): Map<TravelMode, number> {
+  const sel = selectSamples(tl, from, to, detail);
+  const out = new Map<TravelMode, number>();
+  for (let i = 1; i < sel.length; i++) {
+    const a = sel[i - 1], b = sel[i];
+    const m = b.kind !== 'visit' ? b.mode ?? 'other' : a.kind !== 'visit' ? a.mode ?? 'other' : null;
+    if (!m) continue;
+    out.set(m, (out.get(m) ?? 0) + haversine([a.lng, a.lat], [b.lng, b.lat]));
+  }
+  return out;
+}
+
 /**
  * Keep samples whose local day is within [from, to] and build an ordered
  * route. `detail`: 'clean' = visits + paths, 'raw' = adds raw GPS signals.
+ * `modes`: travel modes to keep (all when omitted); stops are always kept.
  * Consecutive visits to the same place collapse into one stop.
  */
-export function filterTimeline(tl: ParsedTimeline, from: string, to: string, detail: 'clean' | 'raw'): FilteredRoute {
-  const useRaw = detail === 'raw' || !tl.hasSemantic;
-  const sel = tl.samples.filter((s) => (!s.day || (s.day >= from && s.day <= to)) && (s.kind !== 'raw' || useRaw));
+export function filterTimeline(tl: ParsedTimeline, from: string, to: string, detail: 'clean' | 'raw', modes?: Set<TravelMode>): FilteredRoute {
+  const sel = selectSamples(tl, from, to, detail).filter((s) => s.kind === 'visit' || !modes || modes.has(s.mode ?? 'other'));
   const pts: FilteredRoute['pts'] = [];
   const stops: Stop[] = [];
   for (const s of sel) {
