@@ -1,0 +1,30 @@
+node_modules/
+coverage/
+dist/
+release/
+.env
+.env.*
+!.env.example
+__pycache__/
+.venv/
+*.cache
+.DS_Store
+
+# Source data never belongs in this repo. Test fixtures are generated
+# synthetic files under test/fixtures/ and are the only allowed exception.
+*.sql
+*.xlsx
+*.xls
+*.ods
+*.csv
+*.tsv
+*.parquet
+*.mdb
+*.accdb
+*.sqlite
+*.duckdb
+!test/fixtures/**
+/build/
+eval/results/
+*.gpx
+data/
