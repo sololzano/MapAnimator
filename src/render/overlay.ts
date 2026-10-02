@@ -1,7 +1,7 @@
 // Canvas2D layer drawn on top of the map: route line, markers, signs and
 // credits. The same code draws the editor preview and every exported frame,
 // so what you see is what you export.
-import type { Scene } from '../core/model';
+import { signPointIndex, type Scene } from '../core/model';
 import type { FrameState, SceneRuntime } from '../core/runtime';
 import { mapTheme } from '../map/themes';
 import { SIGN_FONT, drawSignBody } from './signs';
@@ -93,10 +93,12 @@ export function drawOverlay(o: OverlayInput): SignHit[] {
   const hits: SignHit[] = [];
   const accent = look.color;
   const ink = mapTheme(look.theme).ink;
-  const placed = scene.signs.map((g) => {
+  const placed = scene.signs.flatMap((g) => {
+    const i = signPointIndex(scene.points, g);
+    if (i < 0) return [];
     const v = Math.max(frame.signs.get(g.id) ?? 0, o.minSignAlpha ?? 0);
-    const a = project(g.lng, g.lat);
-    return { g, v, a, c: { x: a.x + g.dx * k, y: a.y + g.dy * k } };
+    const a = project(scene.points[i].lng, scene.points[i].lat);
+    return [{ g, v, a, c: { x: a.x + g.dx * k, y: a.y + g.dy * k } }];
   });
   for (const s of placed) {
     if (s.v <= 0) continue;
@@ -191,28 +193,33 @@ function drawTip(ctx: CanvasRenderingContext2D, scene: Scene, t: number, at: { x
   ctx.restore();
 }
 
-/** Editor handles for step 1 (never exported). */
-export function drawHandles(ctx: CanvasRenderingContext2D, scene: Scene, rt: SceneRuntime, project: Project, sel: number, showMids: boolean, ink: { fg: string; bg: string; accent: string }) {
+/** Editor handles for the route points (never exported). Numbers are optional to keep the map clean. */
+export function drawHandles(
+  ctx: CanvasRenderingContext2D, scene: Scene, rt: SceneRuntime, project: Project, sel: number,
+  opts: { mids: boolean; numbers: boolean; colors: { fg: string; bg: string; accent: string }; marked?: Set<number> },
+) {
   const pts = scene.points.map((q) => project(q.lng, q.lat));
+  const ink = opts.colors;
   ctx.save();
-  if (showMids && pts.length > 1) {
+  if (opts.mids && pts.length > 1) {
     for (let i = 0; i < pts.length - 1; i++) {
       const m = midpoint(scene, rt, i, project);
-      ctx.beginPath(); ctx.arc(m.x, m.y, 5.5, 0, Math.PI * 2);
-      ctx.fillStyle = ink.bg; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = ink.accent; ctx.stroke();
+      ctx.beginPath(); ctx.arc(m.x, m.y, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = ink.bg; ctx.globalAlpha = 0.85; ctx.fill(); ctx.globalAlpha = 1;
+      ctx.lineWidth = 1.5; ctx.strokeStyle = ink.accent; ctx.stroke();
     }
   }
-  const big = pts.length <= 99;
+  const numbered = opts.numbers && pts.length <= 99;
   ctx.font = `600 10px ${SIGN_FONT}`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   pts.forEach((q, i) => {
-    const r = big ? 11 : 6;
-    ctx.shadowColor = 'rgba(0,0,0,0.3)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2;
+    const on = i === sel, r = numbered ? 11 : on ? 7.5 : 6;
+    ctx.shadowColor = 'rgba(0,0,0,0.3)'; ctx.shadowBlur = 5; ctx.shadowOffsetY = 1.5;
     ctx.beginPath(); ctx.arc(q.x, q.y, r, 0, Math.PI * 2);
-    ctx.fillStyle = i === sel ? ink.accent : ink.bg; ctx.fill();
+    ctx.fillStyle = on ? ink.accent : ink.bg; ctx.fill();
     ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
-    ctx.lineWidth = 2; ctx.strokeStyle = ink.fg; ctx.stroke();
-    if (big) { ctx.fillStyle = ink.fg; ctx.fillText(String(i + 1), q.x, q.y + 0.5); }
+    ctx.lineWidth = on ? 2.5 : 2; ctx.strokeStyle = on ? ink.fg : opts.marked?.has(i) ? ink.accent : ink.fg; ctx.stroke();
+    if (numbered) { ctx.fillStyle = ink.fg; ctx.fillText(String(i + 1), q.x, q.y + 0.5); }
   });
   ctx.restore();
   return pts;

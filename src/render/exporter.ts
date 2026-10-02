@@ -30,6 +30,31 @@ export interface ExportJob {
   writable?: FileSystemWritableFileStream;
   signal?: AbortSignal;
   onProgress?: (p: ExportProgress) => void;
+  /** Human-readable status while not rendering frames (loading, paused…). */
+  onStatus?: (msg: string) => void;
+}
+
+const HIDDEN_MSG = 'Paused — bring this tab back to the front to continue';
+
+/**
+ * Resolve when `ready()` is true. Browsers stop animation frames in hidden tabs,
+ * and MapLibre needs them to load, so report that instead of hanging silently.
+ */
+function until(ready: () => boolean, poke: () => void, job: ExportJob, label: string, timeoutMs = 60000): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let waited = 0, lastHidden = false;
+    const tick = () => {
+      if (job.signal?.aborted) return reject(new DOMException('Export cancelled', 'AbortError'));
+      poke();
+      if (ready()) return resolve();
+      const hidden = document.visibilityState === 'hidden';
+      if (hidden !== lastHidden) { job.onStatus?.(hidden ? HIDDEN_MSG : label); lastHidden = hidden; }
+      if (!hidden) waited += 20;
+      if (waited > timeoutMs) return reject(new Error(`Timed out while ${label.toLowerCase()} — check your internet connection (map tiles are needed).`));
+      setTimeout(tick, 20);
+    };
+    tick();
+  });
 }
 
 export function fileName(scene: Scene): string {
@@ -59,21 +84,8 @@ async function pickCodec(scene: Scene, w: number, h: number): Promise<VideoCodec
   throw new Error(`This browser cannot encode ${scene.exp.fmt.toUpperCase()} at ${w}×${h}. Try WebM, a lower resolution, or a Chromium-based browser.`);
 }
 
-function waitFor(map: MlMap, signal?: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const t0 = performance.now();
-    const tick = () => {
-      if (signal?.aborted) return reject(new DOMException('Export cancelled', 'AbortError'));
-      map.redraw();
-      if ((map.isStyleLoaded() && map.areTilesLoaded()) || performance.now() - t0 > 25000) return resolve();
-      setTimeout(tick, 20);
-    };
-    tick();
-  });
-}
-
 export async function exportScene(job: ExportJob): Promise<Blob | null> {
-  const { scene, signal } = job;
+  const { scene } = job;
   await document.fonts.load(`600 20px ${SIGN_FONT}`);
   const rt = runtime(scene);
   const [W, H] = exportDims(scene);
@@ -102,6 +114,7 @@ export async function exportScene(job: ExportJob): Promise<Blob | null> {
     maxCanvasSize: [8192, 8192],
     canvasContextAttributes: { preserveDrawingBuffer: true, antialias: true },
   });
+  if (import.meta.env.DEV) (window as unknown as { __exportMap: MlMap }).__exportMap = map;
   const out = document.createElement('canvas');
   out.width = W; out.height = H;
   // CPU-backed canvas: the software encoders read pixels from CPU memory, and
@@ -110,7 +123,10 @@ export async function exportScene(job: ExportJob): Promise<Blob | null> {
   const attribution = attributionText(scene.look);
 
   try {
-    await new Promise<void>((res) => map.once('load', () => res()));
+    job.onStatus?.('Loading the map…');
+    let loaded = false;
+    map.once('load', () => { loaded = true; });
+    await until(() => loaded, () => {}, job, 'Loading the map…');
     const zoomShift = Math.log2(W / lw);
     // Read the map's pixels straight from WebGL. Copying the WebGL canvas with
     // drawImage() makes Chromium wait on the compositor (~200 ms per frame);
@@ -140,7 +156,10 @@ export async function exportScene(job: ExportJob): Promise<Blob | null> {
       const cam = rt.camera.at(t);
       let t0 = performance.now();
       map.jumpTo({ center: cam.center, zoom: cam.zoom + zoomShift, bearing: cam.bearing, pitch: cam.pitch });
-      await waitFor(map, signal);
+      // Frame-exact: never capture until every tile for this view is in.
+      await until(() => !!map.isStyleLoaded() && map.areTilesLoaded(), () => map.redraw(), job, 'Loading map tiles…', 25000).catch((e) => {
+        if (e instanceof DOMException) throw e; // cancelled
+      });
       ms.map += performance.now() - t0;
       t0 = performance.now();
       await grabMap();

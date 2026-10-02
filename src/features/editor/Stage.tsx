@@ -1,7 +1,7 @@
 import { Map as MlMap, type JumpToOptions, type MapMouseEvent } from 'maplibre-gl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fromMerc } from '../../core/geo';
-import { logicalSize, outputSize, rid, type Ratio } from '../../core/model';
+import { logicalSize, outputSize, removePoint, rid, signPointIndex, type Ratio, type Sign } from '../../core/model';
 import { evaluate, runtime } from '../../core/runtime';
 import { loadCountries, visitedCountries } from '../../map/countries';
 import { attributionText, buildStyle } from '../../map/style';
@@ -24,12 +24,11 @@ export function frameRectFor(size: Size, ratio: Ratio): Rect {
 type Drag =
   | { type: 'pan'; x: number; y: number }
   | { type: 'pt'; i: number; key: string }
-  | { type: 'sign'; id: string; ox: number; oy: number; key: string }
-  | { type: 'anchor'; id: string; key: string };
+  | { type: 'sign'; id: string; ox: number; oy: number; key: string };
 
 const HANDLE_R = 12, MID_R = 8;
 
-export function Stage({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }) {
+export function Stage() {
   const scene = useApp((s) => currentScene(s)!);
   const step = useApp((s) => s.step);
   const tool = useApp((s) => s.tool);
@@ -37,6 +36,7 @@ export function Stage({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }
   const selSign = useApp((s) => s.selSign);
   const toast = useApp((s) => s.toast);
   const uiTheme = useApp((s) => s.uiTheme);
+  const showNumbers = useApp((s) => s.showNumbers);
   const hasHistory = useApp((s) => s.history.past.length > 0);
   const set = useApp((s) => s.set);
 
@@ -56,8 +56,8 @@ export function Stage({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }
   const attribution = attributionText(scene.look);
 
   // Latest values for imperative handlers (map events, rAF, window listeners).
-  const L = useRef({ scene, rt, step, tool, sel, selSign, frame, scale, camMode, size, attribution, colors: { fg: '#4c4f69', bg: '#eff1f5', accent: '#179299' } });
-  L.current = { ...L.current, scene, rt, step, tool, sel, selSign, frame, scale, camMode, size, attribution };
+  const L = useRef({ scene, rt, step, tool, sel, selSign, frame, scale, camMode, size, attribution, showNumbers, colors: { fg: '#4c4f69', bg: '#eff1f5', accent: '#179299' } });
+  L.current = { ...L.current, scene, rt, step, tool, sel, selSign, frame, scale, camMode, size, attribution, showNumbers };
   const hits = useRef<{ signs: SignHit[]; handles: { x: number; y: number }[] }>({ signs: [], handles: [] });
   const drag = useRef<Drag | null>(null);
   const suppressClick = useRef(false);
@@ -86,7 +86,14 @@ export function Stage({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }
       ctx, project, scene: st.scene, rt: st.rt, frame: evaluate(st.scene, st.rt, t), scale: st.scale, frameRect: st.frame,
       attribution: st.attribution, minSignAlpha: st.step === 3 ? 0.55 : 0, selectedSign: st.step === 3 ? st.selSign : null,
     });
-    hits.current.handles = st.step === 1 ? drawHandles(ctx, st.scene, st.rt, project, st.sel, st.tool !== 'pan', st.colors) : [];
+    if (st.step === 1) {
+      hits.current.handles = drawHandles(ctx, st.scene, st.rt, project, st.sel, { mids: st.tool !== 'pan', numbers: st.showNumbers, colors: st.colors });
+    } else if (st.step === 3) {
+      // Points are where signs attach: show them (ringed in accent when they already carry a sign).
+      const marked = new Set(st.scene.signs.map((g) => signPointIndex(st.scene.points, g)));
+      const selected = st.selSign ? signPointIndex(st.scene.points, st.scene.signs.find((g) => g.id === st.selSign) ?? { pointId: '' } as Sign) : st.sel;
+      hits.current.handles = drawHandles(ctx, st.scene, st.rt, project, selected, { mids: false, numbers: st.showNumbers, colors: st.colors, marked });
+    } else hits.current.handles = [];
   }, []);
 
   const raf = useRef(0);
@@ -195,7 +202,7 @@ export function Stage({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }
     schedule();
   }, [camMode, applyCamera, schedule]);
 
-  useEffect(() => { applyCamera(); schedule(); }, [scene, step, tool, sel, selSign, applyCamera, schedule]);
+  useEffect(() => { applyCamera(); schedule(); }, [scene, step, tool, sel, selSign, showNumbers, applyCamera, schedule]);
   useEffect(() => useApp.subscribe((s, prev) => { if (s.tm !== prev.tm) { applyCamera(); schedule(); } }), [applyCamera, schedule]);
 
   // Refit when switching scenes.
@@ -222,10 +229,8 @@ export function Stage({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }
     const hitSign = (p: { x: number; y: number }) => {
       const hs = hits.current.signs;
       for (let i = hs.length - 1; i >= 0; i--) {
-        const h = hs[i];
-        if (Math.hypot(h.anchor.x - p.x, h.anchor.y - p.y) <= 9) return { h, part: 'anchor' as const };
-        const r = h.rect;
-        if (p.x >= r.x - 4 && p.x <= r.x + r.w + 4 && p.y >= r.y - 4 && p.y <= r.y + r.h + 4) return { h, part: 'card' as const };
+        const h = hs[i], r = h.rect;
+        if (r.w > 0 && p.x >= r.x - 4 && p.x <= r.x + r.w + 4 && p.y >= r.y - 4 && p.y <= r.y + r.h + 4) return h;
       }
       return null;
     };
@@ -263,10 +268,17 @@ export function Stage({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }
         if (h) {
           e.stopPropagation();
           suppressClick.current = true;
-          app().set({ selSign: h.h.id });
-          const key = 'drag-' + rid();
-          if (h.part === 'anchor') drag.current = { type: 'anchor', id: h.h.id, key };
-          else drag.current = { type: 'sign', id: h.h.id, ox: p.x - (h.h.rect.x + h.h.rect.w / 2), oy: p.y - (h.h.rect.y + h.h.rect.h / 2), key };
+          app().set({ selSign: h.id });
+          drag.current = { type: 'sign', id: h.id, ox: p.x - (h.rect.x + h.rect.w / 2), oy: p.y - (h.rect.y + h.rect.h / 2), key: 'drag-' + rid() };
+          return;
+        }
+        // Clicking a route point picks it: selects its sign, or marks it as the place for the next new sign.
+        const i = hitHandle(p);
+        if (i >= 0) {
+          e.stopPropagation();
+          suppressClick.current = true;
+          const g = st.scene.signs.find((x) => signPointIndex(st.scene.points, x) === i);
+          app().set(g ? { selSign: g.id, sel: i } : { selSign: null, sel: i });
         }
       }
     };
@@ -281,6 +293,7 @@ export function Stage({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }
         if (st.step === 1 && hitHandle(p) >= 0) cur = 'grab';
         else if (st.step === 1 && st.tool !== 'pan' && hitMid(p)) cur = 'copy';
         else if (st.step === 3 && hitSign(p)) cur = 'move';
+        else if (st.step === 3 && hitHandle(p) >= 0) cur = 'pointer';
         map.getCanvas().style.cursor = cur;
         return;
       }
@@ -293,13 +306,11 @@ export function Stage({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }
       if (d.type === 'pt') {
         const ll = map.unproject([p.x, p.y]);
         app().updateScene((s) => { const q = s.points[d.i]; if (q) { q.lng = ll.lng; q.lat = ll.lat; } }, d.key);
-      } else if (d.type === 'anchor') {
-        const ll = map.unproject([p.x, p.y]);
-        app().updateScene((s) => { const g = s.signs.find((x) => x.id === d.id); if (g) { g.lng = ll.lng; g.lat = ll.lat; } }, d.key);
       } else if (d.type === 'sign') {
         const g = st.scene.signs.find((x) => x.id === d.id);
-        if (!g) return;
-        const a = map.project([g.lng, g.lat]);
+        const q = g && st.scene.points[signPointIndex(st.scene.points, g)];
+        if (!g || !q) return;
+        const a = map.project([q.lng, q.lat]);
         const dx = (p.x - d.ox - a.x) / st.scale, dy = (p.y - d.oy - a.y) / st.scale;
         app().updateScene((s) => { const x = s.signs.find((q) => q.id === d.id); if (x) { x.dx = Math.round(dx); x.dy = Math.round(dy); } }, d.key);
       }
@@ -311,7 +322,7 @@ export function Stage({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }
       const i = hitHandle(rel(e));
       if (i < 0) return;
       e.preventDefault(); e.stopPropagation();
-      app().updateScene((s) => { s.points.splice(i, 1); });
+      app().updateScene((s) => removePoint(s, i));
       app().set({ sel: -1, tm: -1 });
     };
     el.addEventListener('mousedown', onDown, true);
@@ -336,7 +347,6 @@ export function Stage({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }
   );
   const sep = (k: string) => <div key={k} className="mx-[5px] mt-[3px] mb-[5px] h-px bg-line" />;
   const [ow, oh] = outputSize(scene.ratio, scene.exp.res);
-  const empty = step === 1 && scene.points.length === 0;
 
   return (
     <div ref={stageRef} className="relative min-h-0 flex-1 overflow-hidden select-none" style={{ background: 'var(--panel-2)' }}>
@@ -351,19 +361,6 @@ export function Stage({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }
         </div>
       </div>
 
-      {empty && (
-        <div className="pointer-events-none absolute inset-0 grid place-items-center">
-          <div className="pointer-events-auto flex max-w-[340px] flex-col gap-2.5 rounded-2xl bg-bg px-[26px] py-[22px] text-center shadow-[0_16px_48px_rgba(0,0,0,.28)]">
-            <div className="text-[19px] leading-tight font-semibold tracking-[-0.015em]">Click the map to drop your first point</div>
-            <div className="text-[13px] leading-normal text-text-2">Keep clicking to extend the route. Or bring one in:</div>
-            <div className="flex justify-center gap-2">
-              <button className="h-[34px] rounded-lg border border-line-strong bg-card px-3.5 text-[13px] font-medium hover:bg-panel" onClick={() => onImport('gpx')}>GPX</button>
-              <button className="h-[34px] rounded-lg border border-line-strong bg-card px-3.5 text-[13px] font-medium hover:bg-panel" onClick={() => onImport('json')}>JSON timeline</button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {!camMode && (
         <div className="absolute top-3.5 left-3.5 flex flex-col gap-0.5 rounded-xl border border-line bg-bg p-1 shadow-(--shadow)">
           {step === 1 && [
@@ -372,7 +369,7 @@ export function Stage({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }
             toolBtn('Pan — or hold the mouse wheel button', 'pan', () => set({ tool: 'pan' }), tool === 'pan'),
             sep('s1'),
             toolBtn('Undo (Ctrl+Z)', 'undo', undo, false, !hasHistory),
-            toolBtn('Delete selected point', 'trash', () => { updateScene((s) => { s.points.splice(sel, 1); }); set({ sel: -1 }); }, false, sel < 0),
+            toolBtn('Delete selected point', 'trash', () => { updateScene((s) => removePoint(s, sel)); set({ sel: -1 }); }, false, sel < 0),
           ]}
           {step !== 1 && toolBtn('Pan — drag the map, or hold the mouse wheel button', 'pan', () => {}, true)}
           {sep('s2')}

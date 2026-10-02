@@ -11,11 +11,19 @@ const FORMAT_NAMES: Record<ParsedTimeline['format'], string> = {
   semantic: 'Google Takeout · Semantic Location History', simple: 'List of points',
 };
 
-function stopSigns(stops: { lat: number; lng: number; t?: number; name?: string }[], max = 30): Sign[] {
+/** One tag sign per stop (at most `max`), attached to the route point nearest each stop. */
+function stopSigns(points: RoutePoint[], stops: { lat: number; lng: number; t?: number; name?: string }[], max = 30): Sign[] {
+  if (!points.length) return [];
   const step = Math.max(1, Math.ceil(stops.length / max));
-  return stops.filter((_, i) => i % step === 0).map((s, i) => makeSign(s.lng, s.lat, {
-    title: s.name || `Stop ${i + 1}`, sub: shortDate(s.t), style: 'tag', trigger: 'reach', dx: 90, dy: -50,
-  }));
+  return stops.filter((_, i) => i % step === 0).map((s, i) => {
+    let best = points[0], bd = Infinity;
+    for (const q of points) { const d = (q.lng - s.lng) ** 2 + (q.lat - s.lat) ** 2; if (d < bd) { bd = d; best = q; } }
+    return makeSign(best.id, { title: s.name || `Stop ${i + 1}`, sub: shortDate(s.t), style: 'tag', trigger: 'reach', dx: 90, dy: -50 });
+  });
+}
+
+function withSigns(points: RoutePoint[], stops: Parameters<typeof stopSigns>[1] | null): ImportResult {
+  return { points, signs: stops ? stopSigns(points, stops) : [] };
 }
 
 export function GpxImportModal({ data, fileName, onDone, onCancel }: { data: RouteImport; fileName: string; onDone: (r: ImportResult) => void; onCancel: () => void }) {
@@ -31,7 +39,7 @@ export function GpxImportModal({ data, fileName, onDone, onCancel }: { data: Rou
       {named.length > 0 && <Toggle label={`Add a sign at each named waypoint (${named.length})`} value={signs} onChange={setSigns} />}
       <div className="flex justify-end gap-2.5">
         <Button className="h-10 px-4" onClick={onCancel}>Cancel</Button>
-        <Button variant="primary" className="h-10 px-5" onClick={() => onDone({ points: toRoutePoints(data.pts, max), signs: signs ? stopSigns(named) : [] })}>Import route</Button>
+        <Button variant="primary" className="h-10 px-5" onClick={() => onDone(withSigns(toRoutePoints(data.pts, max), signs ? named : null))}>Import route</Button>
       </div>
     </Modal>
   );
@@ -102,7 +110,7 @@ export function TimelineImportModal({ tl, fileName, onDone, onCancel }: { tl: Pa
       <div className="flex justify-end gap-2.5">
         <Button className="h-10 px-4" onClick={onCancel}>Cancel</Button>
         <Button variant="primary" className="h-10 px-5" disabled={filtered.pts.length < 2}
-          onClick={() => onDone({ points: toRoutePoints(filtered.pts, max), signs: signs ? stopSigns(filtered.stops) : [] })}>
+          onClick={() => onDone(withSigns(toRoutePoints(filtered.pts, max), signs ? filtered.stops : null))}>
           {filtered.pts.length < 2 ? 'No route in these dates' : 'Import route'}
         </Button>
       </div>

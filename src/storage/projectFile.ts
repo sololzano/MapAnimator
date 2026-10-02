@@ -2,14 +2,14 @@
 // photos/assets later). Plain .json project files are accepted too.
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { z } from 'zod';
-import { SCHEMA_VERSION, makeScene, rid, type Project } from '../core/model';
+import { SCHEMA_VERSION, makeScene, rid, signPointIndex, type Project, type Sign } from '../core/model';
 
 export const PROJECT_EXT = '.chilaquil';
 
 const num = z.number().refine(Number.isFinite);
 const point = z.object({ id: z.string().optional(), lng: num, lat: num, name: z.string().optional(), time: num.optional() });
 const sign = z.object({
-  id: z.string().optional(), lng: num, lat: num, dx: num.optional(), dy: num.optional(), title: z.string().max(200), sub: z.string().max(200),
+  id: z.string().optional(), pointId: z.string().optional(), lng: num.optional(), lat: num.optional(), dx: num.optional(), dy: num.optional(), title: z.string().max(200), sub: z.string().max(200),
   style: z.enum(['postcard', 'post', 'ticket', 'tag']), trigger: z.enum(['reach', 'pause', 'always']), pause: num, size: num,
 });
 const scene = z.object({
@@ -57,10 +57,16 @@ export async function projectFromFile(file: File): Promise<Project> {
     schemaVersion: SCHEMA_VERSION, id: rid('p'), name: parsed.data.name, createdAt: now, updatedAt: now,
     scenes: parsed.data.scenes.map((s) => {
       const base = makeScene(s.name);
+      const idMap = new Map<string, string>();
+      const points = s.points.map((q) => { const id = rid('r'); if (q.id) idMap.set(q.id, id); return { ...q, id }; });
       return {
         ...base, ratio: s.ratio, smooth: s.smooth ?? true,
-        points: s.points.map((q) => ({ ...q, id: rid('r') })),
-        signs: s.signs.map((g) => ({ ...g, id: rid('g'), dx: g.dx ?? 110, dy: g.dy ?? -70 })),
+        points,
+        signs: points.length ? s.signs.map(({ lng, lat, pointId, ...g }) => ({
+          ...g, id: rid('g'), dx: g.dx ?? 110, dy: g.dy ?? -70,
+          // Re-link to the renamed point; legacy signs (free position) attach to their nearest point.
+          pointId: (pointId && idMap.get(pointId)) || points[signPointIndex(points, { pointId: '', lng, lat } as Sign)].id,
+        })) : [],
         look: { ...base.look, ...(s.look as object) },
         cam: { ...base.cam, ...(s.cam as object), kfs: kfsOf(s.cam) },
         exp: { ...base.exp, ...(s.exp as object) },

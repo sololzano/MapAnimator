@@ -24,10 +24,13 @@ interface AppState {
   playing: boolean;
   toast: string;
   uiTheme: UiTheme;
+  /** Editor preference: show numbers on the route point handles. */
+  showNumbers: boolean;
   history: History;
 
   load(): Promise<void>;
   setUiTheme(t: UiTheme): void;
+  setShowNumbers(v: boolean): void;
   createProject(name: string, ratio: Ratio): Project;
   addProject(p: Project): void;
   removeProject(id: string): void;
@@ -46,6 +49,11 @@ interface AppState {
 }
 
 const THEME_KEY = 'ecwh.uiTheme';
+const NUMBERS_KEY = 'ecwh.showNumbers';
+
+function readPref(key: string): string | null {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
 
 function initialTheme(): UiTheme {
   try {
@@ -87,7 +95,7 @@ export const useApp = create<AppState>((set, get) => {
 
   return {
     ready: false, projects: [], project: null, si: 0, step: 1, tool: 'draw', sel: -1, selSign: null, tm: -1, playing: false,
-    toast: '', uiTheme: initialTheme(), history: freshHistory(),
+    toast: '', uiTheme: initialTheme(), showNumbers: readPref(NUMBERS_KEY) === '1', history: freshHistory(),
 
     async load() {
       const projects = await listProjects();
@@ -96,6 +104,10 @@ export const useApp = create<AppState>((set, get) => {
     setUiTheme(t) {
       try { localStorage.setItem(THEME_KEY, t); } catch { /* ignore */ }
       set({ uiTheme: t });
+    },
+    setShowNumbers(v) {
+      try { localStorage.setItem(NUMBERS_KEY, v ? '1' : '0'); } catch { /* ignore */ }
+      set({ showNumbers: v });
     },
     createProject(name, ratio) {
       const p = makeProject(name.trim() || 'Untitled journey', [makeScene('Scene 1', { ratio })]);

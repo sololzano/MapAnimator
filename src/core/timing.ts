@@ -1,5 +1,4 @@
-import { toMerc } from './geo';
-import type { Scene } from './model';
+import { signPointIndex, type Scene } from './model';
 import type { RouteModel } from './route';
 
 /** Seconds needed to draw the whole line at speed ×1. */
@@ -38,7 +37,10 @@ export function buildTimeMap(scene: Scene, route: RouteModel): TimeMap {
   };
   const travel = route.S.length > 1 ? Math.max(2, BASE_TRAVEL / Math.max(0.05, e.speed)) : 2;
   const signP = new Map<string, number>();
-  for (const g of scene.signs) signP.set(g.id, route.nearest(toMerc(g.lng, g.lat)).p);
+  for (const g of scene.signs) {
+    const i = signPointIndex(scene.points, g);
+    signP.set(g.id, i >= 0 ? route.pointP[i] ?? 0 : 0);
+  }
   const pauses = scene.signs
     .filter((g) => g.trigger === 'pause')
     .map((g) => ({ id: g.id, p: signP.get(g.id)!, dur: Math.max(0, g.pause) }))

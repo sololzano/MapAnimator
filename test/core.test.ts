@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { simplifyToCount, toMerc, fromMerc } from '../src/core/geo';
-import { makeScene, makeSign, outputSize, type RoutePoint } from '../src/core/model';
+import { makeScene, makeSign, outputSize, removePoint, signPointIndex, type RoutePoint } from '../src/core/model';
 import { buildRoute } from '../src/core/route';
 import { buildTimeMap } from '../src/core/timing';
 import { buildCameraPath } from '../src/core/camera';
@@ -36,7 +36,7 @@ describe('timing', () => {
     expect(tm.T).toBeCloseTo(1 + tm.travel + 2, 6);
   });
   it('pauses the line at a pausing sign', () => {
-    const s2 = { ...scene, signs: [makeSign(1, 0, { trigger: 'pause', pause: 3 })] };
+    const s2 = { ...scene, signs: [makeSign('p1', { trigger: 'pause', pause: 3 })] };
     const tm = buildTimeMap(s2, buildRoute(s2.points, false));
     const tReach = tm.timeAtP(0.5);
     expect(tm.progressAt(tReach + 1)).toBeCloseTo(0.5, 3);
@@ -70,7 +70,7 @@ describe('camera', () => {
 describe('frame', () => {
   it('reveals signs after the line reaches them', () => {
     const scene = makeScene('f', { points: pts([[0, 0], [1, 0], [2, 0]]) });
-    scene.signs = [makeSign(1.5, 0, { trigger: 'reach' })];
+    scene.signs = [makeSign('p1', { trigger: 'reach' })];
     const rt = runtime(scene);
     const id = scene.signs[0].id;
     expect(evaluate(scene, rt, 0).signs.get(id)).toBe(0);
@@ -80,5 +80,30 @@ describe('frame', () => {
     expect(outputSize('16:9', '1080p')).toEqual([1920, 1080]);
     expect(outputSize('9:16', '4K')).toEqual([2160, 3840]);
     expect(outputSize('4:5', '1080p')).toEqual([1080, 1350]);
+  });
+});
+
+describe('signs attached to points', () => {
+  it('trigger exactly at their point, even on a curved route', () => {
+    const scene = makeScene('s', { points: pts([[0, 0], [1, 1], [2, 0], [3, 1]]) });
+    scene.signs = [makeSign('p2', { trigger: 'pause', pause: 2 })];
+    const rt = runtime(scene);
+    expect(rt.tm.signP.get(scene.signs[0].id)).toBeCloseTo(rt.route.pointP[2], 9);
+    const t = rt.tm.timeAtP(rt.route.pointP[2]);
+    expect(rt.tm.progressAt(t + 1)).toBeCloseTo(rt.route.pointP[2], 6);
+  });
+  it('move to the previous point when their point is deleted', () => {
+    const scene = makeScene('d', { points: pts([[0, 0], [1, 0], [2, 0]]) });
+    scene.signs = [makeSign('p1'), makeSign('p0')];
+    removePoint(scene, 1);
+    expect(scene.signs.map((g) => g.pointId)).toEqual(['p0', 'p0']);
+    removePoint(scene, 0);
+    expect(scene.signs.map((g) => g.pointId)).toEqual(['p2', 'p2']);
+    removePoint(scene, 0);
+    expect(scene.signs).toEqual([]);
+  });
+  it('legacy free-position signs attach to the nearest point', () => {
+    const points = pts([[0, 0], [5, 5], [10, 0]]);
+    expect(signPointIndex(points, { ...makeSign(''), lng: 4.6, lat: 5.2 })).toBe(1);
   });
 });

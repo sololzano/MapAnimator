@@ -1,5 +1,4 @@
-import { toMerc } from '../../core/geo';
-import { makeSign, outputSize, rid, type Scene, type SignStyle, type TipKind } from '../../core/model';
+import { makeSign, outputSize, removePoint, rid, signPointIndex, type Scene, type SignStyle, type TipKind } from '../../core/model';
 import { runtime } from '../../core/runtime';
 import { formatTime } from '../../core/timing';
 import { MAP_THEMES } from '../../map/themes';
@@ -64,6 +63,8 @@ function RoutePanel({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }) 
   const [scene, update] = useScene();
   const sel = useApp((s) => s.sel);
   const set = useApp((s) => s.set);
+  const showNumbers = useApp((s) => s.showNumbers);
+  const setShowNumbers = useApp((s) => s.setShowNumbers);
   const rt = runtime(scene);
   const big = scene.points.length > 40;
   const km = rt.route.metresAt(1) / 1000;
@@ -76,11 +77,12 @@ function RoutePanel({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }) 
       <Group title="How to edit">
         <Info>Use the toolbar on the map. <b>Draw</b>: click to add points. <b>Move</b>: drag points; drag the small circles on the line to insert; right-click or <kbd>Delete</kbd> removes. <b>Pan</b>: hold the mouse wheel button and drag. Scroll to zoom. <kbd>Ctrl+Z</kbd> undoes.</Info>
       </Group>
-      <Group title="Curve">
+      <Group title="Display">
         <Toggle label="Smooth spline through points" value={scene.smooth} onChange={(v) => update((s) => { s.smooth = v; })} />
+        <Toggle label="Number the points on the map" value={showNumbers} onChange={setShowNumbers} />
       </Group>
       <Group title={<>Points · {scene.points.length}{km > 0 && <span className="num normal-case tracking-normal"> · {km < 10 ? km.toFixed(1) : Math.round(km).toLocaleString()} km</span>}</>}
-        right={scene.points.length > 0 && <button className="eyebrow bg-transparent p-0 text-red! hover:underline" onClick={() => { update((s) => { s.points = []; }); set({ sel: -1, tm: -1 }); }}>Clear</button>}>
+        right={scene.points.length > 0 && <button className="eyebrow bg-transparent p-0 text-red! hover:underline" onClick={() => { update((s) => { s.points = []; s.signs = []; }); set({ sel: -1, selSign: null, tm: -1 }); }}>Clear</button>}>
         {big ? (
           <div className="rounded-[10px] border border-line bg-card px-3.5 py-3 text-[12.5px] leading-normal text-text-2">
             <div className="num mb-1 text-[20px] font-semibold text-text">{scene.points.length} points</div>
@@ -96,13 +98,13 @@ function RoutePanel({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }) 
                   onChange={(e) => update((s) => { s.points[i].name = e.target.value || undefined; }, 'name-' + q.id)}
                   className="min-w-0 flex-1 truncate border-0 bg-transparent p-0 text-[13.5px] outline-none placeholder:text-text" />
                 <span className="num text-[11px] text-muted">{q.time ? new Date(q.time).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : Math.round(rt.route.pointP[i] * 100) + '%'}</span>
-                <button title="Delete point" onClick={(e) => { e.stopPropagation(); update((s) => { s.points.splice(i, 1); }); set({ sel: -1 }); }}
+                <button title="Delete point" onClick={(e) => { e.stopPropagation(); update((s) => removePoint(s, i)); set({ sel: -1 }); }}
                   className="grid h-[22px] w-[22px] place-items-center rounded-[5px] border-0 bg-transparent p-0 text-muted hover:bg-panel-2 hover:text-text">
                   <Icon name="x" size={13} />
                 </button>
               </div>
             ))}
-            {!scene.points.length && <Info>No points yet — click on the map to start.</Info>}
+            {!scene.points.length && <div className="px-2"><Info>No points yet — click on the map to start.</Info></div>}
           </div>
         )}
       </Group>
@@ -146,58 +148,103 @@ function LookPanel() {
   );
 }
 
+function pointLabel(q: Scene['points'][number], i: number) {
+  return `${i + 1} · ${q.name || `Point ${i + 1}`}`;
+}
+
+function PointSelect({ scene, value, onChange, label }: { scene: Scene; value: number; onChange: (i: number) => void; label: string }) {
+  return (
+    <label className="flex flex-col gap-1.5 text-[13.5px]">
+      {label}
+      <select value={value} onChange={(e) => onChange(Number(e.target.value))}
+        className="h-[38px] rounded-[9px] border border-line-strong bg-card px-2.5 text-[14px] text-text outline-none focus:border-accent">
+        {scene.points.map((q, i) => <option key={q.id} value={i}>{pointLabel(q, i)}</option>)}
+      </select>
+    </label>
+  );
+}
+
+const BEHAVIOURS: [Scene['signs'][number]['trigger'], string, string][] = [
+  ['pause', 'Pause here', 'The line stops at this point while the sign pops in, then carries on.'],
+  ['reach', 'Appear here', 'The sign pops in when the line reaches this point and stays.'],
+  ['always', 'Always on', 'The sign is visible for the whole video.'],
+];
+
 function SignsPanel() {
   const [scene, update] = useScene();
   const selSign = useApp((s) => s.selSign);
+  const sel = useApp((s) => s.sel);
   const set = useApp((s) => s.set);
   const say = useApp((s) => s.say);
+  const rt = runtime(scene);
   const sg = scene.signs.find((g) => g.id === selSign);
+  // Where a new sign goes: the picked point, else the point nearest the playhead, else the first one.
+  const target = (() => {
+    if (sel >= 0 && sel < scene.points.length) return sel;
+    const st = useApp.getState();
+    if (st.tm < 0 || !scene.points.length) return scene.points.length ? 0 : -1;
+    const p = rt.tm.progressAt(st.tm);
+    let best = 0;
+    rt.route.pointP.forEach((q, i) => { if (Math.abs(q - p) < Math.abs(rt.route.pointP[best] - p)) best = i; });
+    return best;
+  })();
   const add = (style: SignStyle) => {
-    if (!scene.points.length) { say('Draw a route first'); return; }
-    const st = useApp.getState(), rt = runtime(scene);
-    const p = st.tm < 0 ? 0.5 : rt.tm.progressAt(st.tm);
-    const [lng, lat] = rt.route.posLL(p < 0.03 ? 0.5 : p);
-    const g = makeSign(lng, lat, { style });
+    if (target < 0) { say('Draw a route first'); return; }
+    const q = scene.points[target];
+    const g = makeSign(q.id, { style, title: q.name || 'New place' });
     update((s) => { s.signs.push(g); });
-    set({ selSign: g.id });
+    set({ selSign: g.id, sel: target });
   };
   const patch = (key: string, fn: (g: Scene['signs'][number]) => void) => update((s) => { const g = s.signs.find((x) => x.id === selSign); if (g) fn(g); }, key + selSign);
-  const rt = runtime(scene);
+  const sgIndex = sg ? signPointIndex(scene.points, sg) : -1;
   return (
     <>
       <div className="flex flex-col gap-2.5 px-5 pb-4">
         <div className="eyebrow">Add a sign</div>
-        <div className="grid grid-cols-2 gap-2">
-          {SIGNS.map(([id, label, chip]) => (
-            <button key={id} onClick={() => add(id)} className="flex h-14 items-center gap-2.5 rounded-[10px] border border-line-strong bg-card px-3 text-left text-[13px] font-medium hover:border-accent">
-              <span className="h-5 w-[26px] flex-none" style={css(chip)} />{label}
-            </button>
-          ))}
-        </div>
+        {scene.points.length > 0 ? (
+          <>
+            <PointSelect label="New sign at point" scene={scene} value={Math.max(0, target)} onChange={(i) => set({ sel: i, selSign: null })} />
+            <div className="grid grid-cols-2 gap-2">
+              {SIGNS.map(([id, label, chip]) => (
+                <button key={id} onClick={() => add(id)} className="flex h-14 items-center gap-2.5 rounded-[10px] border border-line-strong bg-card px-3 text-left text-[13px] font-medium hover:border-accent">
+                  <span className="h-5 w-[26px] flex-none" style={css(chip)} />{label}
+                </button>
+              ))}
+            </div>
+            <Info>Tip: click a point on the map to pick it. Points that already have a sign are ringed.</Info>
+          </>
+        ) : <Info>Draw a route first — signs hang from its points.</Info>}
       </div>
       <Group title="Selected sign">
         {sg ? (
           <>
             <TextField label="Title" value={sg.title} onChange={(v) => patch('title', (g) => { g.title = v; })} />
             <TextField label="Subtitle" value={sg.sub} onChange={(v) => patch('sub', (g) => { g.sub = v; })} />
+            <PointSelect label="Attached to point" scene={scene} value={Math.max(0, sgIndex)} onChange={(i) => { patch('point', (g) => { g.pointId = scene.points[i].id; }); set({ sel: i }); }} />
             <Segmented label="Design" value={sg.style} options={SIGNS.map(([id, l]) => [id, l])} onChange={(v) => patch('style', (g) => { g.style = v; })} />
-            <Segmented label="When the line reaches it" value={sg.trigger} options={[['reach', 'Appear'], ['pause', 'Pause line'], ['always', 'Always on']]} onChange={(v) => patch('trigger', (g) => { g.trigger = v; })} />
+            <Segmented label="At this point" value={sg.trigger} options={BEHAVIOURS.map(([v, l]) => [v, l])} onChange={(v) => patch('trigger', (g) => { g.trigger = v; })} />
+            <Info>{BEHAVIOURS.find((b) => b[0] === sg.trigger)?.[2]}</Info>
             {sg.trigger === 'pause' && <Slider label="Pause for" value={sg.pause} min={0.5} max={8} step={0.5} format={(v) => v + ' s'} onChange={(v) => patch('pause', (g) => { g.pause = v; })} />}
             <Slider label="Size" value={sg.size} min={0.5} max={2} step={0.1} format={(v) => '×' + v.toFixed(1)} onChange={(v) => patch('size', (g) => { g.size = v; })} />
-            <Info>Drag the card to place it; drag its small dot to change which spot on the map it points at.</Info>
+            <Info>Drag the card on the map to place it; a dashed leader keeps it tied to its point.</Info>
             <Button className="h-9 text-red" onClick={() => { update((s) => { s.signs = s.signs.filter((g) => g.id !== sg.id); }); set({ selSign: null }); }}>Delete sign</Button>
           </>
-        ) : <Info>Pick a sign on the map or in the list to edit its text, design and timing. Drag it anywhere — on the route or off it.</Info>}
+        ) : <Info>Pick a sign on the map or in the list to edit its text, design and timing.</Info>}
       </Group>
       <Group title={`Signs · ${scene.signs.length}`}>
         <div className="-mx-2 flex flex-col gap-0.5">
-          {scene.signs.map((g) => (
-            <div key={g.id} onClick={() => set({ selSign: g.id })}
-              className={cx('flex cursor-pointer items-center gap-2.5 rounded-lg px-[9px] py-[7px]', selSign === g.id ? 'bg-card shadow-[inset_0_0_0_1px_var(--accent)]' : 'hover:bg-panel-2')}>
-              <span className="flex-1 truncate text-[13.5px]">{g.title}</span>
-              <span className="num text-[11px] text-muted">{{ reach: 'appears', pause: `pause ${g.pause}s`, always: 'always' }[g.trigger]} · {formatTime(rt.tm.timeAtP(rt.route.nearest(toMerc(g.lng, g.lat)).p))}</span>
-            </div>
-          ))}
+          {[...scene.signs].sort((a, b) => (rt.tm.signP.get(a.id) ?? 0) - (rt.tm.signP.get(b.id) ?? 0)).map((g) => {
+            const i = signPointIndex(scene.points, g);
+            return (
+              <div key={g.id} onClick={() => set({ selSign: g.id, sel: i })}
+                className={cx('flex cursor-pointer items-center gap-2.5 rounded-lg px-[9px] py-[7px]', selSign === g.id ? 'bg-card shadow-[inset_0_0_0_1px_var(--accent)]' : 'hover:bg-panel-2')}>
+                <span className="num grid h-[22px] min-w-[22px] flex-none place-items-center rounded-full bg-panel-2 px-1 text-[11px] font-semibold">{i + 1}</span>
+                <span className="flex-1 truncate text-[13.5px]">{g.title}</span>
+                <span className="num text-[11px] text-muted">{{ reach: 'appears', pause: `pause ${g.pause}s`, always: 'always' }[g.trigger]} · {formatTime(g.trigger === 'always' ? 0 : rt.tm.timeAtP(rt.tm.signP.get(g.id) ?? 0))}</span>
+              </div>
+            );
+          })}
+          {!scene.signs.length && <div className="px-2"><Info>No signs yet.</Info></div>}
         </div>
       </Group>
     </>

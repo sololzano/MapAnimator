@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { RATIOS, logicalSize, type Ratio, type Scene } from '../../core/model';
+import { RATIOS, logicalSize, removePoint, type Ratio, type Scene } from '../../core/model';
 import { parseGpx, parseTimelineFile, type RouteImport } from '../../importers';
 import type { ParsedTimeline } from '../../importers/timeline';
 import { goProjects } from '../../nav';
@@ -137,7 +137,7 @@ export function Editor() {
   };
 
   const applyImport = (r: ImportResult) => {
-    update((s) => { s.points = r.points; if (r.signs.length) s.signs = r.signs; });
+    update((s) => { s.points = r.points; s.signs = r.signs; });
     setImp(null);
     set({ sel: -1, tm: -1, tool: 'edit' });
     say(`Imported ${r.points.length} points${r.signs.length ? ` · ${r.signs.length} stops became signs` : ''}`);
@@ -168,7 +168,7 @@ export function Editor() {
       if (mod) return;
       if (e.key === ' ') { e.preventDefault(); togglePlay(); }
       else if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (st.step === 1 && st.sel >= 0) { const i = st.sel; st.updateScene((s) => { s.points.splice(i, 1); }); st.set({ sel: -1 }); }
+        if (st.step === 1 && st.sel >= 0) { const i = st.sel; st.updateScene((s) => removePoint(s, i)); st.set({ sel: -1 }); }
         if (st.step === 3 && st.selSign) { const id = st.selSign; st.updateScene((s) => { s.signs = s.signs.filter((g) => g.id !== id); }); st.set({ selSign: null }); }
       } else if (/^[1-5]$/.test(e.key)) goStep(Number(e.key) as Step);
       else if (e.key === 'f') stageBus.emit('fit');
@@ -187,7 +187,7 @@ export function Editor() {
       <div className="flex min-h-0 flex-1">
         <Sidebar onImport={pickFile} onExport={(all) => void startExport(all)} />
         <main className="flex min-w-0 flex-1 flex-col">
-          <Stage onImport={pickFile} />
+          <Stage />
           <Timeline />
         </main>
       </div>

@@ -20,15 +20,18 @@ export type SignTrigger = 'reach' | 'pause' | 'always';
 
 export interface Sign {
   id: string;
-  /** Map anchor the sign refers to. The line "reaches" the sign at the route point nearest to it. */
-  lng: number;
-  lat: number;
-  /** Card offset from the anchor, in logical pixels (720p short side). */
+  /** Route point the sign is attached to. The line reaches the sign exactly at that point. */
+  pointId: string;
+  /** Legacy (pre-0.2) free position; only used to re-attach old signs to their nearest point. */
+  lng?: number;
+  lat?: number;
+  /** Card offset from the point, in logical pixels (720p short side). */
   dx: number;
   dy: number;
   title: string;
   sub: string;
   style: SignStyle;
+  /** reach: appears when the line gets there and stays · pause: also holds the line · always: visible from the start. */
   trigger: SignTrigger;
   /** Seconds the line waits when trigger === 'pause'. */
   pause: number;
@@ -154,11 +157,31 @@ export function makeProject(name: string, scenes: Scene[]): Project {
   return { schemaVersion: SCHEMA_VERSION, id: rid('p'), name, createdAt: now, updatedAt: now, scenes };
 }
 
-export function makeSign(lng: number, lat: number, over: Partial<Sign> = {}): Sign {
+export function makeSign(pointId: string, over: Partial<Sign> = {}): Sign {
   return {
-    id: rid('g'), lng, lat, dx: 110, dy: -70, title: 'New place', sub: 'Add a note',
+    id: rid('g'), pointId, dx: 110, dy: -70, title: 'New place', sub: 'Add a note',
     style: 'postcard', trigger: 'pause', pause: 2, size: 1, ...over,
   };
+}
+
+/** Delete route point i (inside an Immer recipe). Its signs move to the previous point, or the next one. */
+export function removePoint(s: Scene, i: number): void {
+  const gone = s.points[i];
+  if (!gone) return;
+  s.points.splice(i, 1);
+  const to = s.points[Math.max(0, i - 1)];
+  if (!to) { s.signs = []; return; }
+  for (const g of s.signs) if (g.pointId === gone.id) g.pointId = to.id;
+}
+
+/** Index of the route point a sign hangs from (legacy signs: nearest point to their old position). */
+export function signPointIndex(points: RoutePoint[], g: Sign): number {
+  const i = points.findIndex((q) => q.id === g.pointId);
+  if (i >= 0 || !points.length) return i;
+  if (g.lng == null || g.lat == null) return 0;
+  let best = 0, bd = Infinity;
+  points.forEach((q, j) => { const d = (q.lng - g.lng!) ** 2 + (q.lat - g.lat!) ** 2; if (d < bd) { bd = d; best = j; } });
+  return best;
 }
 
 /** Logical layout size per ratio: the short side is always 720 px. Export scales this up. */
@@ -196,11 +219,12 @@ export function sampleProject(): Project {
     id: rid('r'), lng, lat, name, time: d ? Date.parse(d + 'T12:00:00Z') : undefined,
   }));
   const s = makeScene('Lisbon → Porto', { points });
+  const at = (name: string) => points.find((q) => q.name === name)!.id;
   s.signs = [
-    makeSign(-9.1393, 38.7223, { title: 'Lisbon', sub: 'Day 1 · Start', style: 'postcard', dx: 120, dy: 40 }),
-    makeSign(-9.1571, 39.3606, { title: 'Óbidos', sub: 'Walled town', style: 'post', trigger: 'reach', dx: -150, dy: -10 }),
-    makeSign(-8.4103, 40.2033, { title: 'Coimbra', sub: 'Day 3', style: 'ticket', trigger: 'pause', pause: 1.5, dx: 140, dy: 10 }),
-    makeSign(-8.6291, 41.1579, { title: 'Porto', sub: 'Finish', style: 'tag', pause: 3, dx: 110, dy: -50 }),
+    makeSign(at('Lisbon'), { title: 'Lisbon', sub: 'Day 1 · Start', style: 'postcard', dx: 120, dy: 40 }),
+    makeSign(at('Óbidos'), { title: 'Óbidos', sub: 'Walled town', style: 'post', trigger: 'reach', dx: -150, dy: -10 }),
+    makeSign(at('Coimbra'), { title: 'Coimbra', sub: 'Day 3', style: 'ticket', trigger: 'pause', pause: 1.5, dx: 140, dy: 10 }),
+    makeSign(at('Porto'), { title: 'Porto', sub: 'Finish', style: 'tag', pause: 3, dx: 110, dy: -50 }),
   ];
   return makeProject('Portugal Coast Road Trip', [s]);
 }
