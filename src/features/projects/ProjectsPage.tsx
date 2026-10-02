@@ -83,8 +83,8 @@ function ProjectCard({ p }: { p: Project }) {
             <Button className="h-[34px]" title="Download project file" onClick={() => void projectToFile(p).then((b) => downloadBlob(b, projectFileName(p)))}>
               <Icon name="download" size={15} /> Download
             </Button>
-            <Button className="h-[34px] w-[34px] px-0 text-muted hover:text-text" title="Delete project" aria-label={`Delete ${p.name}`} onClick={() => setConfirming(true)}>
-              <Icon name="trash" size={15} />
+            <Button className="h-[38px] w-[38px] flex-none p-0! text-text-2 hover:text-red" title="Delete project" aria-label={`Delete ${p.name}`} onClick={() => setConfirming(true)}>
+              <Icon name="trash" size={22} strokeWidth={2} className="shrink-0" />
             </Button>
           </>
         )}
@@ -177,13 +177,12 @@ export function ProjectsPage() {
         {error && <div role="alert" className="rounded-xl border border-red/40 bg-card px-4 py-3 text-[13.5px] text-red">{error}</div>}
 
         <section aria-label="Projects" className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-5">
-          {!projects.length &&
           <button onClick={() => setNewOpen(true)}
             className="flex min-h-[268px] flex-col items-center justify-center gap-2.5 rounded-2xl border-[1.5px] border-dashed border-line-x bg-transparent text-text-2 hover:border-accent hover:bg-panel">
             <span className="grid h-11 w-11 place-items-center rounded-full bg-panel-2"><Icon name="plus" size={20} /></span>
             <span className="text-[17px] font-semibold text-text">New project</span>
             <span className="text-[13px] text-muted">Draw a route or import a file</span>
-          </button>}
+          </button>
           {sorted.map((p) => <ProjectCard key={p.id} p={p} />)}
           {!projects.length && (
             <button onClick={() => { const p = sampleProject(); addProject(p); goProject(p.id); }}

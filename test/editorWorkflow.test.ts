@@ -31,9 +31,20 @@ afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
 afterAll(() => vi.unstubAllGlobals());
 
 describe('map animation workflow', () => {
-  it('previews from the beginning in the animation camera view', () => {
+  it.each([1, 2, 3, 4, 5] as const)('previews from the beginning without leaving step %s', (step) => {
+    useApp.setState({ step });
     togglePlay();
-    expect(useApp.getState()).toMatchObject({ step: 5, playing: true, tm: 0 });
+    expect(useApp.getState()).toMatchObject({ step, playing: true, tm: 0 });
+  });
+
+  it('pauses and resumes in the current editing view', () => {
+    useApp.setState({ step: 2, tm: 2 });
+    togglePlay();
+    expect(useApp.getState()).toMatchObject({ step: 2, playing: true, tm: 2 });
+    togglePlay();
+    expect(useApp.getState()).toMatchObject({ step: 2, playing: false, tm: 2 });
+    togglePlay();
+    expect(useApp.getState()).toMatchObject({ step: 2, playing: true, tm: 2 });
   });
 
   it('resumes a paused camera preview and restarts a finished one', () => {

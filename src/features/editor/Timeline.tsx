@@ -37,7 +37,7 @@ export function togglePlay() {
   const T = runtime(sc).tm.T;
   let t = st.tm < 0 ? T : Math.min(st.tm, T);
   if (t >= T - 0.02) t = 0;
-  st.set({ playing: true, tm: t, step: st.step < 4 ? 5 : st.step, sel: -1, selSign: null });
+  st.set({ playing: true, tm: t, sel: -1, selSign: null });
 }
 
 function SeekControl({ T }: { T: number }) {
