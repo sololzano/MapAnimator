@@ -2,7 +2,7 @@
 // photos/assets later). Plain .json project files are accepted too.
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { z } from 'zod';
-import { SCHEMA_VERSION, makeScene, rid, signPointIndex, type Project, type Sign } from '../core/model';
+import { SCHEMA_VERSION, makeScene, normalizeProject, rid, signPointIndex, type Project, type Sign } from '../core/model';
 
 export const PROJECT_EXT = '.chilaquil';
 
@@ -32,6 +32,12 @@ export function projectFileName(p: Project): string {
 }
 
 const kf = z.object({ p: num, z: num });
+const camView = z.object({ center: z.tuple([num, num]), zoom: num, bearing: num, pitch: num });
+
+function viewOf(cam: unknown) {
+  const r = camView.safeParse((cam as { view?: unknown } | undefined)?.view);
+  return r.success ? r.data : null;
+}
 
 function kfsOf(cam: unknown) {
   const r = z.array(kf).safeParse((cam as { kfs?: unknown } | undefined)?.kfs);
@@ -53,7 +59,7 @@ export async function projectFromFile(file: File): Promise<Project> {
   const parsed = projectSchema.safeParse(raw);
   if (!parsed.success) throw new Error('That file is not an ElChilaquilWasHere project.');
   const now = Date.now();
-  return {
+  return normalizeProject({
     schemaVersion: SCHEMA_VERSION, id: rid('p'), name: parsed.data.name, createdAt: now, updatedAt: now,
     scenes: parsed.data.scenes.map((s) => {
       const base = makeScene(s.name);
@@ -68,9 +74,9 @@ export async function projectFromFile(file: File): Promise<Project> {
           pointId: (pointId && idMap.get(pointId)) || points[signPointIndex(points, { pointId: '', lng, lat } as Sign)].id,
         })) : [],
         look: { ...base.look, ...(s.look as object) },
-        cam: { ...base.cam, ...(s.cam as object), kfs: kfsOf(s.cam) },
+        cam: { ...base.cam, ...(s.cam as object), kfs: kfsOf(s.cam), view: viewOf(s.cam) },
         exp: { ...base.exp, ...(s.exp as object) },
       };
     }),
-  };
+  });
 }

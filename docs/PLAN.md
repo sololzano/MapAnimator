@@ -590,9 +590,16 @@ is the riskiest part, then widen each step.
   faster than real time on a GTX 1080 Ti.
 - **MapLibre 6** locates its worker relative to its own module, so `src/map/setup.ts` sets
   the worker URL from a Vite `?worker&url` import.
-- **Camera model** follows the design (follow / pan / overview, zoom keyframes, intro and
-  outro) rather than the per-block camera track. Smoothing is a fixed-rate Gaussian filter
-  (`src/core/camera.ts`).
+- **Camera model:** Follow or Overview (Pan A→B was dropped), plus zoom keyframes and
+  intro/outro. The Camera step is edited on the map itself: in Overview, gestures set a
+  custom framing (`cam.view`) that the intro and outro reuse. In Follow, scroll changes the
+  zoom at the playhead and right-drag sets the tilt. Smoothing is a fixed-rate Gaussian
+  filter (`src/core/camera.ts`).
+- **Timing is distance-based:** draw time = 6·km^0.2 × winding + 0.2 s per point (3–120 s),
+  scaled by the pace preset (Slow / Normal / Fast / Custom). Pace, ease and holds live on
+  the timeline bar.
+- **Signs hang from route points** (`pointId`) and trigger exactly at them: pause, appear,
+  or always on.
 - **Not yet built:** per-segment transport modes and great-circle arcs, music track,
   motion blur, screen overlays (date ticker, distance counter), photo signboards, Service
   Worker tile cache, offline PMTiles, PWA.

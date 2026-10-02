@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { runtime } from '../../core/runtime';
 import { formatTime } from '../../core/timing';
+import type { Pace, Scene } from '../../core/model';
 import { currentScene, useApp } from '../../state/store';
+import { cx } from '../../ui/controls';
 import { Icon } from '../../ui/icons';
 
 const LABEL_W = 108;
@@ -64,7 +66,7 @@ export function Timeline() {
   const set = useApp((s) => s.set);
   const rt = useMemo(() => runtime(scene), [scene]);
   const { T, pre, post, pauses } = rt.tm;
-  const ex = scene.exp, cam = scene.cam;
+  const cam = scene.cam;
   const tlRef = useRef<HTMLDivElement>(null);
 
   const timeFromX = (clientX: number) => {
@@ -92,15 +94,17 @@ export function Timeline() {
   let cur = pre, first = true;
   for (const q of pauses) {
     const a = rt.tm.timeAtP(q.p);
-    push(cur, a, 'travel', first ? `Route · ×${ex.speed.toFixed(1)}` : '');
+    push(cur, a, 'travel', first ? `Route · ${rt.tm.travel.toFixed(1)} s` : '');
     first = false;
     push(a, a + q.dur, 'pause', `${q.dur}s`);
     cur = a + q.dur;
   }
-  push(cur, T - post, 'travel', first ? `Route · ×${ex.speed.toFixed(1)}` : '');
+  push(cur, T - post, 'travel', first ? `Route · ${rt.tm.travel.toFixed(1)} s` : '');
   push(T - post, T, 'hold', post >= 1 ? 'hold' : '');
 
-  const camLabel = `${{ follow: 'Follow line', pan: 'Pan A → B', overview: 'Overview' }[cam.mode]} · ${cam.orient === 'heading' ? 'heading up' : 'north up'} · ×${(2 ** cam.zoom).toFixed(1)}`;
+  const camLabel = cam.mode === 'overview'
+    ? `Overview · ${cam.view ? 'custom framing' : 'auto fit'}`
+    : `Follow line · ${cam.orient === 'heading' ? 'heading up' : 'north up'} · ×${(2 ** cam.zoom).toFixed(1)}`;
 
   return (
     <div className="flex h-[clamp(150px,26vh,216px)] flex-none flex-col border-t border-line bg-bg">
@@ -113,8 +117,8 @@ export function Timeline() {
           {playing ? 'Pause' : 'Play'}
         </button>
         <TimeReadout T={T} />
-        <div className="flex-1" />
-        <span className="text-[12px] text-muted">Drag the playhead to scrub · <kbd className="font-sans font-semibold">Space</kbd> plays</span>
+        <div className="mx-1 h-5 w-px bg-line" />
+        <MotionBar />
       </div>
       <div ref={tlRef} onMouseDown={onDown} className="relative flex min-h-0 flex-1 cursor-col-resize flex-col select-none">
         <div className="grid h-6 flex-none" style={{ gridTemplateColumns: `${LABEL_W}px 1fr` }}>
@@ -149,6 +153,51 @@ export function Timeline() {
         </Track>
         <Playhead T={T} />
       </div>
+    </div>
+  );
+}
+
+const PACES: [Pace, string][] = [['slow', 'Slow'], ['normal', 'Normal'], ['fast', 'Fast'], ['custom', 'Custom']];
+
+/** Pace, easing and holds: they shape the timeline, so they live on it. */
+function MotionBar() {
+  const scene = useApp((s) => currentScene(s)!);
+  const update = useApp((s) => s.updateScene);
+  const ex = scene.exp;
+  const auto = runtime(scene).tm.auto;
+  const setE = <K extends keyof Scene['exp']>(k: K, v: Scene['exp'][K]) => update((s) => { s.exp[k] = v; }, 'exp-' + String(k));
+  const stepper = (label: string, k: 'pre' | 'post', max: number) => (
+    <div className="flex items-center gap-1 text-[12px] whitespace-nowrap text-text-2" title={`Hold the ${k === 'pre' ? 'first' : 'last'} frame`}>
+      {label}
+      <button className="grid h-6 w-6 place-items-center rounded-md border border-line bg-card p-0 hover:bg-panel" onClick={() => setE(k, Math.max(0, ex[k] - 0.5))}>−</button>
+      <span className="num w-8 text-center font-medium text-text">{ex[k]} s</span>
+      <button className="grid h-6 w-6 place-items-center rounded-md border border-line bg-card p-0 hover:bg-panel" onClick={() => setE(k, Math.min(max, ex[k] + 0.5))}>+</button>
+    </div>
+  );
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-4 overflow-x-auto">
+      <div className="flex items-center gap-2 text-[12px] text-text-2" title={`At Normal pace the line takes ${auto.toFixed(1)} s, based on the route's distance and number of points`}>
+        Pace
+        <div className="flex gap-0.5 rounded-lg bg-panel-2 p-0.5">
+          {PACES.map(([v, l]) => (
+            <button key={v} onClick={() => setE('pace', v)}
+              className={cx('h-6 rounded-md border-0 px-2.5 text-[12px] whitespace-nowrap', ex.pace === v ? 'bg-card font-semibold text-text shadow-[0_1px_2px_rgba(0,0,0,.15)]' : 'bg-transparent text-text-2 hover:text-text')}>{l}</button>
+          ))}
+        </div>
+        {ex.pace === 'custom' && (
+          <>
+            <input type="range" min={0.25} max={4} step={0.05} value={ex.speed} onChange={(e) => setE('speed', parseFloat(e.target.value))} className="w-24!" />
+            <span className="num w-10 font-medium text-text">×{ex.speed.toFixed(2)}</span>
+          </>
+        )}
+      </div>
+      <label className="flex items-center gap-2 text-[12px] whitespace-nowrap text-text-2" title="Ease in and out of the drawing">
+        Ease
+        <input type="range" min={0} max={100} step={5} value={ex.ease} onChange={(e) => setE('ease', parseFloat(e.target.value))} className="w-20!" />
+        <span className="num w-8 font-medium text-text">{ex.ease}%</span>
+      </label>
+      {stepper('Hold start', 'pre', 5)}
+      {stepper('end', 'post', 8)}
     </div>
   );
 }

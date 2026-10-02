@@ -70,8 +70,18 @@ export interface ZoomKeyframe {
   z: number;
 }
 
+/** A fixed camera framing in logical units (zoom is for the 720p logical frame). */
+export interface CameraView {
+  center: [number, number];
+  zoom: number;
+  bearing: number;
+  pitch: number;
+}
+
 export interface CameraSettings {
-  mode: 'follow' | 'pan' | 'overview';
+  mode: 'follow' | 'overview';
+  /** Custom overview framing set by moving the map in the Camera step; null = auto-fit the route. */
+  view: CameraView | null;
   orient: 'north' | 'heading';
   /** Zoom levels closer than the overview (0 = overview, 1 = 2x, 2 = 4x ...). */
   zoom: number;
@@ -89,8 +99,13 @@ export interface CameraSettings {
 export type Resolution = '720p' | '1080p' | '1440p' | '4K';
 export type VideoFormat = 'mp4' | 'webm' | 'gif';
 
+export type Pace = 'slow' | 'normal' | 'fast' | 'custom';
+export const PACE_SPEED: Record<Exclude<Pace, 'custom'>, number> = { slow: 0.6, normal: 1, fast: 1.7 };
+
 export interface ExportSettings {
-  /** Speed multiplier for drawing the line. */
+  /** Speed preset for drawing the line; 'custom' uses `speed`. */
+  pace: Pace;
+  /** Custom speed multiplier (×1 = the automatic, distance-based duration). */
   speed: number;
   /** 0..100 ease in/out. */
   ease: number;
@@ -138,11 +153,11 @@ export function defaultLook(): Look {
 }
 
 export function defaultCamera(): CameraSettings {
-  return { mode: 'follow', orient: 'north', zoom: 1.5, ahead: 8, smooth: 50, tilt: 0, intro: true, outro: true, kfs: [] };
+  return { mode: 'follow', view: null, orient: 'north', zoom: 1.5, ahead: 8, smooth: 50, tilt: 0, intro: true, outro: true, kfs: [] };
 }
 
 export function defaultExport(): ExportSettings {
-  return { speed: 1, ease: 50, pre: 1, post: 2, res: '1080p', fps: 30, fmt: 'mp4' };
+  return { pace: 'normal', speed: 1, ease: 50, pre: 1, post: 2, res: '1080p', fps: 30, fmt: 'mp4' };
 }
 
 export function makeScene(name: string, over: Partial<Scene> = {}): Scene {
@@ -162,6 +177,37 @@ export function makeSign(pointId: string, over: Partial<Sign> = {}): Sign {
     id: rid('g'), pointId, dx: 110, dy: -70, title: 'New place', sub: 'Add a note',
     style: 'postcard', trigger: 'pause', pause: 2, size: 1, ...over,
   };
+}
+
+/** Effective speed multiplier of a scene. */
+export function paceSpeed(e: ExportSettings): number {
+  return e.pace === 'custom' ? e.speed : PACE_SPEED[e.pace] ?? 1;
+}
+
+/**
+ * Bring a stored scene up to the current model (older projects, imported files).
+ * Returns the same object when nothing changes.
+ */
+export function normalizeScene(s: Scene): Scene {
+  const cam = s.cam as unknown as Omit<CameraSettings, 'mode' | 'view'> & { mode: string; view?: CameraView | null };
+  const exp = s.exp as ExportSettings & { pace?: Pace };
+  const needCam = cam.mode === 'pan' || cam.view === undefined;
+  const needExp = !exp.pace;
+  const needSigns = s.signs.some((g) => !s.points.some((q) => q.id === g.pointId));
+  if (!needCam && !needExp && !needSigns) return s;
+  return {
+    ...s,
+    cam: needCam ? { ...cam, mode: cam.mode === 'overview' ? 'overview' : 'follow', view: cam.view ?? null } : s.cam,
+    exp: needExp ? { ...exp, pace: exp.speed === 1 ? 'normal' : 'custom' } : s.exp,
+    signs: needSigns
+      ? (s.points.length ? s.signs.map((g) => ({ ...g, pointId: s.points[signPointIndex(s.points, g)].id })) : [])
+      : s.signs,
+  };
+}
+
+export function normalizeProject(p: Project): Project {
+  const scenes = p.scenes.map(normalizeScene);
+  return scenes.every((x, i) => x === p.scenes[i]) ? p : { ...p, scenes };
 }
 
 /** Delete route point i (inside an Immer recipe). Its signs move to the previous point, or the next one. */

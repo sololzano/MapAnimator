@@ -2,6 +2,7 @@ import { Map as MlMap, type JumpToOptions, type MapMouseEvent } from 'maplibre-g
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fromMerc } from '../../core/geo';
 import { logicalSize, outputSize, removePoint, rid, signPointIndex, type Ratio, type Sign } from '../../core/model';
+import { overviewWeight, zoomAt } from '../../core/camera';
 import { evaluate, runtime } from '../../core/runtime';
 import { loadCountries, visitedCountries } from '../../map/countries';
 import { attributionText, buildStyle } from '../../map/style';
@@ -64,6 +65,12 @@ export function Stage() {
   const savedView = useRef<JumpToOptions | null>(null);
   /** Until the user moves the map, keep the route fitted to the frame (e.g. while the window resizes). */
   const userMoved = useRef(false);
+  /** A user gesture is in progress in the camera steps. */
+  const gesture = useRef(false);
+  /** The map moved because of the gesture (not just a click). */
+  const gestureMoved = useRef(false);
+  /** Camera jumps we make ourselves must never be saved as user edits. */
+  const programmatic = useRef(false);
 
   useEffect(() => {
     const cs = getComputedStyle(document.documentElement);
@@ -107,7 +114,9 @@ export function Stage() {
     if (!map || !st.camMode) return;
     const tm = useApp.getState().tm;
     const c = st.rt.camera.at(tm < 0 ? 0 : tm);
+    programmatic.current = true;
     map.jumpTo({ center: c.center, zoom: c.zoom + Math.log2(st.frame.w / logicalSize(st.scene.ratio)[0]), bearing: c.bearing, pitch: c.pitch });
+    programmatic.current = false;
   }, []);
 
   const fit = useCallback((animate: boolean) => {
@@ -122,6 +131,46 @@ export function Stage() {
       maxZoom: 13, duration: animate ? 450 : 0, bearing: 0, pitch: 0,
     });
   }, []);
+
+  /**
+   * Turn the map view the user just set (camera steps) into camera settings.
+   * Overview: the view becomes the custom framing. Follow: zoom changes the zoom at
+   * the playhead (base zoom, or a keyframe when keyframes exist) and pitch sets the tilt.
+   */
+  const commitCamera = useCallback((zoomDelta?: number) => {
+    const map = mapRef.current, st = L.current;
+    if (!map || !st.camMode) return;
+    const shift = Math.log2(st.frame.w / logicalSize(st.scene.ratio)[0]);
+    const app = useApp.getState();
+    const t = Math.max(0, app.tm);
+    const p = st.rt.tm.progressAt(t);
+    // Whatever is on screen is what gets edited: the overview shot (overview mode, or the
+    // opening/closing of a follow camera), otherwise the follow camera at the playhead.
+    if (overviewWeight(st.scene.cam, p) > 0.5) {
+      const c = map.getCenter();
+      app.updateScene((s) => {
+        s.cam.view = { center: [c.lng, c.lat], zoom: map.getZoom() - shift + (zoomDelta ?? 0), bearing: map.getBearing(), pitch: map.getPitch() };
+      }, 'cam-view');
+      return;
+    }
+    const cur = st.rt.camera.at(t);
+    const dz = zoomDelta ?? map.getZoom() - shift - cur.zoom;
+    const pitch = Math.round(Math.max(0, Math.min(60, map.getPitch())));
+    app.updateScene((s) => {
+      if (Math.abs(dz) > 0.01) {
+        const clampZ = (z: number) => Math.round(Math.max(0, Math.min(8, z)) * 10) / 10;
+        if (!s.cam.kfs.length) s.cam.zoom = clampZ(s.cam.zoom + dz);
+        else {
+          const k = s.cam.kfs.find((q) => Math.abs(q.p - p) < 0.02);
+          if (k) k.z = clampZ(k.z + dz);
+          else s.cam.kfs.push({ id: rid('k'), p, z: clampZ(zoomAt(s.cam, p) + dz) });
+        }
+      }
+      if (Math.abs(pitch - cur.pitch) > 0.5) s.cam.tilt = pitch;
+    }, 'cam-follow');
+    // Snap back to the computed camera (follow mode keeps its own centre and bearing).
+    requestAnimationFrame(() => applyCamera());
+  }, [applyCamera]);
 
   // Create the map once.
   useEffect(() => {
@@ -142,6 +191,15 @@ export function Stage() {
     map.on('dragstart', touched);
     map.on('zoomstart', touched);
     map.on('rotatestart', touched);
+    map.on('pitchstart', touched);
+    map.on('wheel', () => { userMoved.current = true; });
+    // Fires after inertia too, so the final resting view is what gets saved.
+    map.on('movestart', () => { if (gesture.current && !programmatic.current) gestureMoved.current = true; });
+    map.on('moveend', () => {
+      if (programmatic.current || !gesture.current || !gestureMoved.current) return;
+      gesture.current = gestureMoved.current = false;
+      commitCamera();
+    });
     map.on('click', (e: MapMouseEvent) => {
       if (suppressClick.current) { suppressClick.current = false; return; }
       const s = L.current;
@@ -193,7 +251,12 @@ export function Stage() {
     const hs = [map.dragPan, map.scrollZoom, map.keyboard, map.dragRotate, map.touchZoomRotate];
     if (camMode) {
       if (!savedView.current) savedView.current = { center: map.getCenter(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() };
-      hs.forEach((h) => h.disable());
+      // The camera step is directly editable: gestures become camera settings (see commitCamera).
+      map.keyboard.disable();
+      map.scrollZoom.enable();
+      map.dragRotate.enable();
+      map.touchZoomRotate.enable();
+      map.dragPan.enable();
       applyCamera();
     } else {
       hs.forEach((h) => h.enable());
@@ -236,9 +299,18 @@ export function Stage() {
     };
     const app = () => useApp.getState();
 
+    /** Camera steps: any pointer or wheel input on the map starts a gesture that is saved on moveend. */
+    const startGesture = () => {
+      if (!L.current.camMode) return;
+      gesture.current = true;
+      gestureMoved.current = false;
+      if (useApp.getState().playing) app().set({ playing: false });
+    };
+    const onWheel = () => startGesture();
     const onDown = (e: MouseEvent) => {
       const st = L.current, map = mapRef.current;
-      if (!map || st.camMode) return;
+      if (st.camMode) { startGesture(); return; }
+      if (!map) return;
       const p = rel(e);
       if (e.button === 1) {
         e.preventDefault(); e.stopPropagation();
@@ -315,7 +387,11 @@ export function Stage() {
         app().updateScene((s) => { const x = s.signs.find((q) => q.id === d.id); if (x) { x.dx = Math.round(dx); x.dy = Math.round(dy); } }, d.key);
       }
     };
-    const onUp = () => { drag.current = null; };
+    const onUp = () => {
+      drag.current = null;
+      // A click that didn't move the map closes the gesture; drags keep it open through inertia.
+      if (gesture.current && !gestureMoved.current) gesture.current = false;
+    };
     const onCtx = (e: MouseEvent) => {
       const st = L.current;
       if (st.camMode || st.step !== 1) return;
@@ -326,11 +402,13 @@ export function Stage() {
       app().set({ sel: -1, tm: -1 });
     };
     el.addEventListener('mousedown', onDown, true);
+    el.addEventListener('wheel', onWheel, { capture: true, passive: true });
     el.addEventListener('contextmenu', onCtx, true);
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     return () => {
       el.removeEventListener('mousedown', onDown, true);
+      el.removeEventListener('wheel', onWheel, true);
       el.removeEventListener('contextmenu', onCtx, true);
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
@@ -361,6 +439,13 @@ export function Stage() {
         </div>
       </div>
 
+      {camMode && (
+        <div className="absolute top-3.5 left-3.5 flex flex-col gap-0.5 rounded-xl border border-line bg-bg p-1 shadow-(--shadow)">
+          {toolBtn(scene.cam.mode === 'overview' ? 'Zoom the overview in' : 'Zoom the camera in at the playhead', 'zoomIn', () => commitCamera(0.5))}
+          {toolBtn(scene.cam.mode === 'overview' ? 'Zoom the overview out' : 'Zoom the camera out at the playhead', 'zoomOut', () => commitCamera(-0.5))}
+          {toolBtn('Reset the overview to fit the whole route', 'fit', () => updateScene((s) => { s.cam.view = null; }), false, !scene.cam.view)}
+        </div>
+      )}
       {!camMode && (
         <div className="absolute top-3.5 left-3.5 flex flex-col gap-0.5 rounded-xl border border-line bg-bg p-1 shadow-(--shadow)">
           {step === 1 && [
@@ -381,7 +466,9 @@ export function Stage() {
 
       <div className="pointer-events-none absolute bottom-3 left-3.5 rounded bg-[rgba(35,38,52,.55)] px-1.5 py-0.5 text-[10.5px] text-[#eff1f5]">
         {camMode
-          ? `Camera preview · ${{ follow: 'following the line', pan: 'panning start → end', overview: 'fixed overview' }[scene.cam.mode]}`
+          ? scene.cam.mode === 'overview'
+            ? 'Overview · drag to pan · scroll to zoom · right-drag to rotate and tilt'
+            : 'Following the line · scroll to zoom at the playhead · right-drag to tilt'
           : 'Scroll to zoom · hold the wheel button to pan · right-drag to rotate'}
       </div>
       {toast && <div className="absolute bottom-5 left-1/2 -translate-x-1/2 rounded-full bg-inverse px-4 py-[9px] text-[13px] text-on-inverse shadow-[0_8px_24px_rgba(0,0,0,.3)]">{toast}</div>}

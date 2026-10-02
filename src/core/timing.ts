@@ -1,8 +1,22 @@
-import { signPointIndex, type Scene } from './model';
+import { clamp } from './geo';
+import { paceSpeed, signPointIndex, type Scene } from './model';
 import type { RouteModel } from './route';
 
-/** Seconds needed to draw the whole line at speed ×1. */
-export const BASE_TRAVEL = 14;
+/**
+ * Seconds to draw the whole line at speed ×1, from the route itself:
+ *  - distance, on a gentle power curve (5 km ≈ 8 s, 300 km ≈ 19 s, 5000 km ≈ 33 s),
+ *  - how winding it is (path length vs. its bounding box),
+ *  - how many points it has (each one is a place worth seeing).
+ */
+export function autoTravel(route: RouteModel, nPoints: number): number {
+  if (route.S.length < 2 || !route.bounds) return 2;
+  const km = Math.max(0.05, route.M[route.M.length - 1] / 1000);
+  const b = route.bounds;
+  const diag = Math.hypot(b.x1 - b.x0, b.y1 - b.y0) || route.L;
+  const winding = clamp(Math.sqrt(route.L / diag), 1, 1.8);
+  const perPoint = 0.2 * Math.min(Math.max(0, nPoints - 2), 75);
+  return clamp(6 * km ** 0.2 * winding + perPoint, 3, 120);
+}
 /** Seconds a sign takes to fade/pop in. */
 export const SIGN_IN = 0.5;
 
@@ -19,6 +33,8 @@ export interface TimeMap {
   progressAt(t: number): number;
   /** Scene time at which the line reaches progress p. */
   timeAtP(p: number): number;
+  /** Draw time at speed ×1 (the automatic, distance-based duration). */
+  auto: number;
   /** Progress at which each sign triggers, by sign id. */
   signP: Map<string, number>;
 }
@@ -35,7 +51,8 @@ export function buildTimeMap(scene: Scene, route: RouteModel): TimeMap {
     for (let i = 0; i < 30; i++) { const m = (a + b) / 2; if (ease(m) < p) a = m; else b = m; }
     return (a + b) / 2;
   };
-  const travel = route.S.length > 1 ? Math.max(2, BASE_TRAVEL / Math.max(0.05, e.speed)) : 2;
+  const auto = autoTravel(route, scene.points.length);
+  const travel = route.S.length > 1 ? Math.max(1, auto / Math.max(0.05, paceSpeed(e))) : 2;
   const signP = new Map<string, number>();
   for (const g of scene.signs) {
     const i = signPointIndex(scene.points, g);
@@ -65,7 +82,7 @@ export function buildTimeMap(scene: Scene, route: RouteModel): TimeMap {
     for (const q of pauses) if (q.p < p - 1e-9) acc += q.dur;
     return e.pre + inv(p) * travel + acc;
   };
-  const tm: TimeMap = { T, pre: e.pre, post: e.post, travel, pauses, progressAt, timeAtP, signP };
+  const tm: TimeMap = { T, pre: e.pre, post: e.post, travel, auto, pauses, progressAt, timeAtP, signP };
   cache.set(scene, tm);
   return tm;
 }

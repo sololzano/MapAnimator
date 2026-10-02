@@ -1,6 +1,6 @@
 import { produce } from 'immer';
 import { create } from 'zustand';
-import { makeProject, makeScene, rid, type Project, type Ratio, type Scene } from '../core/model';
+import { makeProject, makeScene, normalizeProject, rid, type Project, type Ratio, type Scene } from '../core/model';
 import { deleteProject, listProjects, requestPersistence, saveProject } from '../storage/db';
 
 export type Step = 1 | 2 | 3 | 4 | 5;
@@ -98,7 +98,7 @@ export const useApp = create<AppState>((set, get) => {
     toast: '', uiTheme: initialTheme(), showNumbers: readPref(NUMBERS_KEY) === '1', history: freshHistory(),
 
     async load() {
-      const projects = await listProjects();
+      const projects = (await listProjects()).map(normalizeProject);
       set({ projects, ready: true });
     },
     setUiTheme(t) {

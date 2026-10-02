@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { simplifyToCount, toMerc, fromMerc } from '../src/core/geo';
-import { makeScene, makeSign, outputSize, removePoint, signPointIndex, type RoutePoint } from '../src/core/model';
+import { makeScene, makeSign, normalizeScene, outputSize, removePoint, signPointIndex, type RoutePoint, type Scene } from '../src/core/model';
 import { buildRoute } from '../src/core/route';
 import { buildTimeMap } from '../src/core/timing';
 import { buildCameraPath } from '../src/core/camera';
@@ -105,5 +105,53 @@ describe('signs attached to points', () => {
   it('legacy free-position signs attach to the nearest point', () => {
     const points = pts([[0, 0], [5, 5], [10, 0]]);
     expect(signPointIndex(points, { ...makeSign(''), lng: 4.6, lat: 5.2 })).toBe(1);
+  });
+});
+
+describe('distance-based timing', () => {
+  const line = (km: number, n = 3): RoutePoint[] => {
+    const deg = km / 111.2;
+    return pts(Array.from({ length: n }, (_, i) => [(deg * i) / (n - 1), 0] as [number, number]));
+  };
+  it('longer trips take longer, but not proportionally', () => {
+    const t = (km: number) => runtime(makeScene('x', { points: line(km), smooth: false })).tm.auto;
+    expect(t(5)).toBeGreaterThan(5);
+    expect(t(300)).toBeGreaterThan(t(5));
+    expect(t(5000)).toBeGreaterThan(t(300));
+    expect(t(5000) / t(5)).toBeLessThan(10);
+  });
+  it('more points make a longer clip', () => {
+    const a = runtime(makeScene('a', { points: line(100, 3), smooth: false })).tm.auto;
+    const b = runtime(makeScene('b', { points: line(100, 30), smooth: false })).tm.auto;
+    expect(b).toBeGreaterThan(a);
+  });
+  it('pace presets scale the drawing time', () => {
+    const s = makeScene('p', { points: line(100), smooth: false });
+    const normal = runtime(s).tm.travel;
+    const slow = runtime({ ...s, exp: { ...s.exp, pace: 'slow' } }).tm.travel;
+    const custom = runtime({ ...s, exp: { ...s.exp, pace: 'custom', speed: 2 } }).tm.travel;
+    expect(slow).toBeGreaterThan(normal);
+    expect(custom).toBeCloseTo(normal / 2, 6);
+  });
+});
+
+describe('camera framing & migration', () => {
+  it('overview mode holds the custom view exactly', () => {
+    const s = makeScene('o', { points: pts([[0, 0], [1, 1], [2, 0]]) });
+    s.cam = { ...s.cam, mode: 'overview', view: { center: [10, 20], zoom: 5, bearing: 30, pitch: 40 } };
+    const c = runtime(s).camera.at(3);
+    expect(c.center[0]).toBeCloseTo(10, 6);
+    expect(c.center[1]).toBeCloseTo(20, 6);
+    expect(c.zoom).toBeCloseTo(5, 6);
+    expect(c.bearing).toBeCloseTo(30, 6);
+    expect(c.pitch).toBeCloseTo(40, 6);
+  });
+  it('migrates old pan-mode cameras and speed-only timing', () => {
+    const s = makeScene('m', { points: pts([[0, 0], [1, 0]]) });
+    const old = { ...s, cam: { ...s.cam, mode: 'pan', view: undefined }, exp: { ...s.exp, pace: undefined, speed: 1.5 } } as unknown as Scene;
+    const n = normalizeScene(old);
+    expect(n.cam.mode).toBe('follow');
+    expect(n.cam.view).toBeNull();
+    expect(n.exp.pace).toBe('custom');
   });
 });

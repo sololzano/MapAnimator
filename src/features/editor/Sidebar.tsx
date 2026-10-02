@@ -7,13 +7,20 @@ import { currentScene, useApp, type Step } from '../../state/store';
 import { Button, Cards, Group, Info, Segmented, Slider, Swatches, TextField, Toggle, cx } from '../../ui/controls';
 import { Icon } from '../../ui/icons';
 
+/** 850 m · 12.3 km · 297 km · 1,240 km */
+export function fmtDist(m: number): string {
+  if (m < 1000) return Math.round(m) + ' m';
+  const km = m / 1000;
+  return (km < 100 ? km.toFixed(1) : Math.round(km).toLocaleString()) + ' km';
+}
+
 const TITLES = ['Route', 'Look', 'Signs', 'Camera', 'Preview & export'];
 const DESCS = [
   'Click to draw, import a GPX or a dated JSON timeline, then drag points to reshape.',
   'Map style, labels and the look of the line. Appearance only — motion comes later.',
   'Add signboards on or off the route. Choose whether the line stops for them.',
   'Decide how the camera moves: follow, pan, zoom, rotate.',
-  'Set pace and pauses, then pick resolution and frame rate.',
+  'Pick resolution, frame rate and format. Pace and pauses live in the timeline below.',
 ];
 export const STEP_LABELS = ['Route', 'Look', 'Signs', 'Camera', 'Export'];
 
@@ -81,7 +88,7 @@ function RoutePanel({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }) 
         <Toggle label="Smooth spline through points" value={scene.smooth} onChange={(v) => update((s) => { s.smooth = v; })} />
         <Toggle label="Number the points on the map" value={showNumbers} onChange={setShowNumbers} />
       </Group>
-      <Group title={<>Points · {scene.points.length}{km > 0 && <span className="num normal-case tracking-normal"> · {km < 10 ? km.toFixed(1) : Math.round(km).toLocaleString()} km</span>}</>}
+      <Group title={<>Points · {scene.points.length}{km > 0 && <span className="num normal-case tracking-normal"> · {fmtDist(km * 1000)} · ~{Math.round(rt.tm.T)} s clip</span>}</>}
         right={scene.points.length > 0 && <button className="eyebrow bg-transparent p-0 text-red! hover:underline" onClick={() => { update((s) => { s.points = []; s.signs = []; }); set({ sel: -1, selSign: null, tm: -1 }); }}>Clear</button>}>
         {big ? (
           <div className="rounded-[10px] border border-line bg-card px-3.5 py-3 text-[12.5px] leading-normal text-text-2">
@@ -97,7 +104,10 @@ function RoutePanel({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }) 
                 <input value={q.name ?? ''} placeholder={`Point ${i + 1}`} onClick={(e) => e.stopPropagation()}
                   onChange={(e) => update((s) => { s.points[i].name = e.target.value || undefined; }, 'name-' + q.id)}
                   className="min-w-0 flex-1 truncate border-0 bg-transparent p-0 text-[13.5px] outline-none placeholder:text-text" />
-                <span className="num text-[11px] text-muted">{q.time ? new Date(q.time).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : Math.round(rt.route.pointP[i] * 100) + '%'}</span>
+                <span className="num text-right text-[11px] leading-tight text-muted" title={i ? 'Distance from the previous point' : 'Start'}>
+                  {i ? '+' + fmtDist(rt.route.M[rt.route.idx[i]] - rt.route.M[rt.route.idx[i - 1]]) : 'start'}
+                  {q.time != null && <span className="block">{new Date(q.time).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</span>}
+                </span>
                 <button title="Delete point" onClick={(e) => { e.stopPropagation(); update((s) => removePoint(s, i)); set({ sel: -1 }); }}
                   className="grid h-[22px] w-[22px] place-items-center rounded-[5px] border-0 bg-transparent p-0 text-muted hover:bg-panel-2 hover:text-text">
                   <Icon name="x" size={13} />
@@ -265,18 +275,35 @@ function CameraPanel() {
   return (
     <>
       <Group title="Movement">
-        <Segmented label="Camera mode" value={cam.mode} options={[['follow', 'Follow line'], ['pan', 'Pan A→B'], ['overview', 'Overview']]} onChange={setC('mode')} />
-        <Segmented label="Orientation" value={cam.orient} options={[['north', 'North up'], ['heading', 'Heading up']]} onChange={setC('orient')} />
-        <Slider label="Zoom" value={cam.zoom} min={0} max={8} step={0.1} format={zfmt} onChange={setC('zoom')} />
-        <Slider label="Look-ahead" value={cam.ahead} min={0} max={40} step={1} format={(v) => v + '%'} onChange={setC('ahead')} />
-        <Slider label="Smoothing" value={cam.smooth} min={0} max={100} step={5} format={(v) => v + '%'} onChange={setC('smooth')} />
-        <Slider label="Tilt (3D)" value={cam.tilt} min={0} max={60} step={1} format={(v) => v + '°'} onChange={setC('tilt')} />
-        {cam.tilt > 0 && !scene.look.terrain && <Info>Tip: turn on <b>3D terrain</b> in step 2 to see mountains when tilted.</Info>}
+        <Segmented label="Camera mode" value={cam.mode} options={[['follow', 'Follow the line'], ['overview', 'Overview (static)']]} onChange={setC('mode')} />
+        {cam.mode === 'overview' && <Info>The camera holds one shot while the line draws itself.</Info>}
       </Group>
-      <Group title="Opening & closing">
-        <Toggle label="Start wide, then zoom in" value={cam.intro} onChange={setC('intro')} />
-        <Toggle label="Pull back to overview at the end" value={cam.outro} onChange={setC('outro')} />
+      <Group title="Framing" right={cam.view && <button className="eyebrow bg-transparent p-0 text-accent! hover:underline" onClick={() => update((s) => { s.cam.view = null; })}>Reset</button>}>
+        <Info>
+          {cam.mode === 'overview'
+            ? <>Frame the shot right on the map: <b>drag</b> to pan, <b>scroll</b> to zoom, <b>right-drag</b> to rotate and tilt.</>
+            : <>On the map, with the playhead mid-route: <b>scroll</b> to zoom the camera there, <b>right-drag</b> up/down to tilt. With the playhead at the start or end you frame the <b>overview</b> shot used for the opening and closing.</>}
+        </Info>
+        <div className="num rounded-[10px] border border-line bg-card px-3 py-2.5 text-[12px] text-text-2">
+          Overview: {cam.view
+            ? <>custom · zoom {cam.view.zoom.toFixed(1)} · {Math.round(cam.view.bearing)}° · tilt {Math.round(cam.view.pitch)}°</>
+            : 'automatic fit of the whole route'}
+        </div>
       </Group>
+      {cam.mode === 'follow' && (
+        <>
+          <Group title="Following">
+            <Segmented label="Orientation" value={cam.orient} options={[['north', 'North up'], ['heading', 'Heading up']]} onChange={setC('orient')} />
+            <Slider label="Zoom" value={cam.zoom} min={0} max={8} step={0.1} format={zfmt} onChange={setC('zoom')} />
+            <Slider label="Look-ahead" value={cam.ahead} min={0} max={40} step={1} format={(v) => v + '%'} onChange={setC('ahead')} />
+            <Slider label="Smoothing" value={cam.smooth} min={0} max={100} step={5} format={(v) => v + '%'} onChange={setC('smooth')} />
+            <Slider label="Tilt (3D)" value={cam.tilt} min={0} max={60} step={1} format={(v) => v + '°'} onChange={setC('tilt')} />
+            {cam.tilt > 0 && !scene.look.terrain && <Info>Tip: turn on <b>3D terrain</b> in step 2 to see mountains when tilted.</Info>}
+          </Group>
+          <Group title="Opening & closing">
+            <Toggle label="Start on the overview, then zoom in" value={cam.intro} onChange={setC('intro')} />
+            <Toggle label="Pull back to the overview at the end" value={cam.outro} onChange={setC('outro')} />
+          </Group>
       <Group title={`Zoom keyframes · ${cam.kfs.length}`}>
         <Info>Move the playhead, then add a keyframe. The camera eases between keyframes.</Info>
         <Button className="h-9 hover:border-accent" onClick={addKf}><Icon name="diamond" size={14} />Add keyframe at playhead</Button>
@@ -291,6 +318,8 @@ function CameraPanel() {
           </div>
         ))}
       </Group>
+        </>
+      )}
     </>
   );
 }
@@ -311,12 +340,6 @@ function ExportPanel({ onExport }: { onExport: (all: boolean) => void }) {
   ];
   return (
     <>
-      <Group title="Motion">
-        <Slider label="Speed" value={ex.speed} min={0.25} max={4} step={0.05} format={(v) => '×' + v.toFixed(2)} onChange={setE('speed')} />
-        <Slider label="Smoothness (ease in / out)" value={ex.ease} min={0} max={100} step={5} format={(v) => v + '%'} onChange={setE('ease')} />
-        <Slider label="Hold before start" value={ex.pre} min={0} max={5} step={0.5} format={(v) => v + ' s'} onChange={setE('pre')} />
-        <Slider label="Hold after end" value={ex.post} min={0} max={8} step={0.5} format={(v) => v + ' s'} onChange={setE('post')} />
-      </Group>
       <Group title="Output">
         <Segmented label="Resolution" value={ex.res} options={[['720p', '720p'], ['1080p', '1080p'], ['1440p', '1440p'], ['4K', '4K']]} onChange={setE('res')} />
         <Segmented label="Frame rate" value={ex.fps} options={[[24, '24'], [30, '30'], [60, '60']]} onChange={setE('fps')} />
