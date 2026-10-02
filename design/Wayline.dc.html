@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>html,body{margin:0;height:100%;background:#FAF9F5;overflow:hidden}*{box-sizing:border-box}a{color:#A8482A}a:hover{color:#8A381F}button{font-family:inherit;cursor:pointer}input{font-family:inherit}input[type=range]{accent-color:#D97757}::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:#D8D4C5;border-radius:6px;border:2px solid transparent;background-clip:content-box}</style>
+</helmet>
+<div style="position:relative;width:100%;height:100vh;font-family:'Instrument Sans',system-ui,sans-serif;color:#141413;background:#FAF9F5;overflow:hidden;font-size:14px">
+<input type="file" accept=".json,.wayline" ref="{{ projFileRef }}" onChange="{{ onProjFile }}" style="display:none">
+<input type="file" accept=".gpx,.xml,.json" ref="{{ routeFileRef }}" onChange="{{ onRouteFile }}" style="display:none">
+
+<sc-if value="{{ isProjects }}" hint-placeholder-val="{{ true }}">
+<div data-screen-label="Projects" style="position:absolute;inset:0;overflow:auto;background:#FAF9F5">
+<div style="max-width:1160px;margin:0 auto;padding:28px 40px 72px;display:flex;flex-direction:column;gap:40px">
+  <header style="display:flex;align-items:center;justify-content:space-between;gap:16px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:28px;height:28px;border-radius:50%;background:#D97757;display:grid;place-items:center"><div style="width:9px;height:9px;border-radius:50%;background:#FAF9F5"></div></div>
+      <span style="font:500 26px/1 'Newsreader',Georgia,serif;letter-spacing:-.01em">Wayline</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 12px;border:1px solid #E3E0D3;border-radius:99px;background:#F5F4ED;font-size:12.5px;color:#4A4944"><div style="width:7px;height:7px;border-radius:50%;background:#788C5D"></div>Stored in this browser only · no account</div>
+  </header>
+  <section style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap">
+    <div style="display:flex;flex-direction:column;gap:12px;max-width:620px">
+      <div style="font:500 11px/1 'JetBrains Mono',monospace;letter-spacing:.1em;color:#6B6A64">PROJECTS</div>
+      <h1 style="margin:0;font:400 56px/1.02 'Newsreader',Georgia,serif;letter-spacing:-.02em">Your journeys, <em style="color:#B4532F">in motion.</em></h1>
+      <p style="margin:0;font-size:16px;line-height:1.5;color:#4A4944;text-wrap:pretty">Draw a route, dress the map, drop signs, direct the camera, export. Every project lives on this device and holds as many scenes as you like.</p>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button onClick="{{ openFileClick }}" style="height:42px;padding:0 18px;border-radius:10px;border:1px solid #D8D4C5;background:#FAF9F5;font-size:14px;font-weight:500;color:#141413" style-hover="background:#F2F0E8">Open from file</button>
+      <button onClick="{{ openNew }}" style="height:42px;padding:0 20px;border-radius:10px;border:0;background:#B4532F;color:#fff;font-size:14px;font-weight:600" style-hover="background:#9C4526">+ New project</button>
+    </div>
+  </section>
+  <section style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px">
+    <button onClick="{{ openNew }}" style="min-height:268px;border:1.5px dashed #C9C5B5;border-radius:16px;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#4A4944" style-hover="background:#F5F4ED;border-color:#D97757">
+      <div style="width:44px;height:44px;border-radius:50%;background:#E8E4D6;display:grid;place-items:center;font-size:24px;line-height:1">+</div>
+      <span style="font:500 20px/1 'Newsreader',Georgia,serif">New project</span>
+      <span style="font-size:13px;color:#6B6A64">Draw, or import GPX / JSON</span>
+    </button>
+    <sc-for list="{{ projCards }}" as="p" hint-placeholder-count="3">
+      <div style="border:1px solid #E3E0D3;border-radius:16px;background:#fff;overflow:hidden;display:flex;flex-direction:column" style-hover="box-shadow:0 8px 28px rgba(20,20,19,.1)">
+        <div onClick="{{ p.open }}" style="height:150px;position:relative;cursor:pointer;background:{{ p.bg }}">
+          <svg viewBox="0 0 280 150" style="position:absolute;inset:0;width:100%;height:100%"><polyline points="{{ p.mini }}" style="fill:none;stroke:#D97757;stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round"></polyline><circle cx="{{ p.sx }}" cy="{{ p.sy }}" r="5" style="fill:#FAF9F5;stroke:#D97757;stroke-width:2.5"></circle></svg>
+          <div style="position:absolute;left:12px;top:12px;padding:3px 8px;border-radius:99px;background:rgba(250,249,245,.92);font:500 10.5px/1.4 'JetBrains Mono',monospace;color:#141413">{{ p.ratio }}</div>
+        </div>
+        <div style="padding:16px 18px 14px;display:flex;flex-direction:column;gap:4px">
+          <div style="font:500 22px/1.15 'Newsreader',Georgia,serif;letter-spacing:-.01em">{{ p.name }}</div>
+          <div style="font:400 12px/1.4 'JetBrains Mono',monospace;color:#6B6A64">{{ p.meta }}</div>
+        </div>
+        <div style="margin-top:auto;padding:0 18px 16px;display:flex;gap:8px;align-items:center">
+          <sc-if value="{{ p.confirming }}" hint-placeholder-val="{{ false }}">
+            <span style="font-size:13px;color:#4A4944;flex:1">Delete permanently?</span>
+            <button onClick="{{ p.cancel }}" style="height:34px;padding:0 12px;border-radius:8px;border:1px solid #D8D4C5;background:#fff;font-size:13px">Keep</button>
+            <button onClick="{{ p.confirm }}" style="height:34px;padding:0 12px;border-radius:8px;border:0;background:#141413;color:#FAF9F5;font-size:13px;font-weight:600">Delete</button>
+          </sc-if>
+          <sc-if value="{{ p.idle }}" hint-placeholder-val="{{ true }}">
+            <button onClick="{{ p.open }}" style="flex:1;height:34px;border-radius:8px;border:1px solid #D8D4C5;background:#FAF9F5;font-size:13px;font-weight:600" style-hover="background:#F2F0E8">Open</button>
+            <button onClick="{{ p.dl }}" title="Download project file" style="height:34px;padding:0 12px;border-radius:8px;border:1px solid #D8D4C5;background:#FAF9F5;font-size:13px" style-hover="background:#F2F0E8">↓ Download</button>
+            <button onClick="{{ p.del }}" title="Delete" style="height:34px;width:34px;border-radius:8px;border:1px solid #D8D4C5;background:#FAF9F5;font-size:16px;color:#6B6A64" style-hover="background:#F2F0E8;color:#141413">×</button>
+          </sc-if>
+        </div>
+      </div>
+    </sc-for>
+  </section>
+  <section style="display:flex;gap:14px;padding:18px 20px;border-radius:14px;background:#F2F0E8;align-items:flex-start">
+    <div style="width:8px;height:8px;margin-top:6px;border-radius:50%;background:#D97757;flex:none"></div>
+    <p style="margin:0;font-size:13.5px;line-height:1.55;color:#4A4944;text-wrap:pretty"><strong style="color:#141413">Using a private window?</strong> Browsers clear local data when the window closes. Hit <em>Download</em> on any project to keep a copy, then <em>Open from file</em> next time.</p>
+  </section>
+</div>
+
+<sc-if value="{{ newOpen }}" hint-placeholder-val="{{ false }}">
+<div style="position:fixed;inset:0;background:rgba(20,20,19,.45);display:grid;place-items:center;z-index:50">
+  <div style="width:480px;max-width:92vw;background:#FAF9F5;border-radius:18px;padding:28px;display:flex;flex-direction:column;gap:20px;box-shadow:0 24px 80px rgba(0,0,0,.3)">
+    <div style="font:500 28px/1.1 'Newsreader',Georgia,serif">New project</div>
+    <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#4A4944">Name<input value="{{ newName }}" onChange="{{ setNewName }}" style="height:42px;border:1px solid #D8D4C5;border-radius:10px;padding:0 12px;font-size:15px;background:#fff;color:#141413"></label>
+    <div style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#4A4944">First scene video ratio
+      <div style="display:flex;gap:6px"><sc-for list="{{ newRatios }}" as="r" hint-placeholder-count="4"><button onClick="{{ r.pick }}" style="flex:1;height:38px;border-radius:9px;font:500 13px 'JetBrains Mono',monospace;{{ r.sty }}">{{ r.label }}</button></sc-for></div></div>
+    <div style="display:flex;flex-direction:column;gap:6px;font-size:13px;color:#4A4944">Start with
+      <div style="display:flex;gap:6px;flex-wrap:wrap"><sc-for list="{{ newStarts }}" as="r" hint-placeholder-count="3"><button onClick="{{ r.pick }}" style="height:38px;padding:0 14px;border-radius:9px;font-size:13px;font-weight:500;{{ r.sty }}">{{ r.label }}</button></sc-for></div></div>
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:4px">
+      <button onClick="{{ closeNew }}" style="height:42px;padding:0 18px;border-radius:10px;border:1px solid #D8D4C5;background:#FAF9F5;font-size:14px">Cancel</button>
+      <button onClick="{{ createProject }}" style="height:42px;padding:0 22px;border-radius:10px;border:0;background:#B4532F;color:#fff;font-size:14px;font-weight:600">Create &amp; open editor</button>
+    </div>
+  </div>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ isEditor }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Editor" style="position:absolute;inset:0;display:flex;flex-direction:column;background:#FAF9F5">
+  <div style="height:52px;flex:none;display:flex;align-items:center;gap:16px;padding:0 14px;border-bottom:1px solid #E3E0D3">
+    <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1">
+      <button onClick="{{ goProjects }}" style="flex:none;height:34px;padding:0 12px;border-radius:8px;border:1px solid #E3E0D3;background:#FAF9F5;font-size:13px;display:flex;align-items:center;gap:6px;white-space:nowrap" style-hover="background:#F2F0E8">← Projects</button>
+      <div style="width:1px;height:20px;background:#E3E0D3"></div>
+      <span style="font:500 19px/1 'Newsreader',Georgia,serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ projName }}</span>
+      <span style="font:400 11px 'JetBrains Mono',monospace;color:#6B6A64;white-space:nowrap;display:flex;align-items:center;gap:6px"><span style="width:6px;height:6px;border-radius:50%;background:#788C5D"></span>saved locally</span>
+    </div>
+    <nav style="display:flex;align-items:center;gap:4px;background:#F2F0E8;padding:3px;border-radius:12px">
+      <sc-for list="{{ stepsArr }}" as="s" hint-placeholder-count="5">
+        <button onClick="{{ s.go }}" style="height:34px;padding:0 14px 0 8px;border-radius:9px;border:0;display:flex;align-items:center;gap:8px;font-size:13px;white-space:nowrap;{{ s.sty }}">
+          <span style="width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font:500 11px 'JetBrains Mono',monospace;{{ s.dot }}">{{ s.n }}</span>{{ s.label }}</button>
+      </sc-for>
+    </nav>
+    <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;flex:1">
+      <div style="display:flex;background:#F2F0E8;padding:3px;border-radius:10px;gap:2px">
+        <sc-for list="{{ ratios }}" as="r" hint-placeholder-count="4">
+          <button onClick="{{ r.pick }}" title="{{ r.label }}" style="height:30px;padding:0 10px;border-radius:7px;border:0;display:flex;align-items:center;gap:7px;font:500 12px 'JetBrains Mono',monospace;{{ r.sty }}"><span style="display:block;border:1.5px solid currentColor;border-radius:2px;{{ r.glyph }}"></span>{{ r.label }}</button>
+        </sc-for>
+      </div>
+      <button onClick="{{ dlProject }}" title="Download project" style="height:34px;width:34px;border-radius:8px;border:1px solid #E3E0D3;background:#FAF9F5;font-size:15px" style-hover="background:#F2F0E8">↓</button>
+      <button onClick="{{ toExport }}" style="height:34px;padding:0 16px;border-radius:9px;border:0;background:#B4532F;color:#fff;font-size:13px;font-weight:600" style-hover="background:#9C4526">Export</button>
+    </div>
+  </div>
+  <div style="height:40px;flex:none;display:flex;align-items:center;gap:6px;padding:0 14px;border-bottom:1px solid #E3E0D3;background:#F5F4ED;overflow-x:auto">
+    <span style="font:500 10.5px 'JetBrains Mono',monospace;letter-spacing:.1em;color:#6B6A64;margin-right:6px">SCENES</span>
+    <sc-for list="{{ sceneTabs }}" as="t" hint-placeholder-count="2">
+      <div onClick="{{ t.pick }}" style="height:28px;display:flex;align-items:center;gap:6px;padding:0 6px 0 12px;border-radius:8px;cursor:pointer;white-space:nowrap;{{ t.sty }}">
+        <sc-if value="{{ t.active }}" hint-placeholder-val="{{ false }}"><input value="{{ t.name }}" onChange="{{ t.ren }}" style="border:0;background:transparent;font-size:13px;font-weight:600;color:#141413;outline:none;width:{{ t.w }}ch;padding:0"></sc-if>
+        <sc-if value="{{ t.idle }}" hint-placeholder-val="{{ true }}"><span style="font-size:13px;color:#4A4944">{{ t.name }}</span></sc-if>
+        <sc-if value="{{ t.canClose }}" hint-placeholder-val="{{ false }}"><button onClick="{{ t.close }}" style="width:20px;height:20px;border-radius:5px;border:0;background:transparent;color:#6B6A64;font-size:14px;line-height:1;padding:0" style-hover="background:#E8E4D6">×</button></sc-if>
+      </div>
+    </sc-for>
+    <button onClick="{{ addScene }}" style="height:28px;padding:0 10px;border-radius:8px;border:1px dashed #BDB9A8;background:transparent;font-size:13px;color:#4A4944;white-space:nowrap" style-hover="background:#E8E4D6">+ Scene</button>
+    <button onClick="{{ dupScene }}" style="height:28px;padding:0 10px;border-radius:8px;border:0;background:transparent;font-size:13px;color:#4A4944;white-space:nowrap" style-hover="background:#E8E4D6">Duplicate</button>
+    <div style="flex:1"></div>
+    <span style="font-size:12px;color:#6B6A64;white-space:nowrap">Each scene is independent — export one or all</span>
+  </div>
+
+  <div style="flex:1;min-height:0;display:flex">
+    <aside style="width:332px;flex:none;background:#F2F0E8;border-right:1px solid #E3E0D3;display:flex;flex-direction:column;min-height:0">
+      <div style="padding:20px 20px 16px;display:flex;flex-direction:column;gap:6px">
+        <div style="font:500 10.5px 'JetBrains Mono',monospace;letter-spacing:.1em;color:#6B6A64">STEP {{ step }} OF 5</div>
+        <div style="font:400 30px/1.05 'Newsreader',Georgia,serif;letter-spacing:-.01em">{{ stepTitle }}</div>
+        <div style="font-size:13px;line-height:1.5;color:#4A4944;text-wrap:pretty">{{ stepDesc }}</div>
+      </div>
+      <div style="flex:1;overflow-y:auto;min-height:0">
+        <sc-if value="{{ isStep1 }}" hint-placeholder-val="{{ true }}">
+          <div style="padding:0 20px 16px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <button onClick="{{ pickFile }}" style="height:38px;border-radius:9px;border:1px solid #D0CCBC;background:#FAF9F5;font-size:13px;font-weight:500" style-hover="background:#fff">Import GPX</button>
+            <button onClick="{{ pickFile }}" style="height:38px;border-radius:9px;border:1px solid #D0CCBC;background:#FAF9F5;font-size:13px;font-weight:500" style-hover="background:#fff">Import JSON timeline</button>
+          </div>
+        </sc-if>
+        <sc-if value="{{ isStep3 }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:0 20px 16px;display:flex;flex-direction:column;gap:10px">
+            <div style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#6B6A64">Add a sign</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <sc-for list="{{ signTypes }}" as="a" hint-placeholder-count="4">
+                <button onClick="{{ a.add }}" style="height:56px;border-radius:10px;border:1px solid #D0CCBC;background:#FAF9F5;display:flex;align-items:center;gap:10px;padding:0 12px;font-size:13px;font-weight:500;text-align:left" style-hover="background:#fff;border-color:#D97757"><span style="width:26px;height:20px;flex:none;{{ a.chip }}"></span>{{ a.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+        <sc-for list="{{ groups }}" as="g" hint-placeholder-count="3">
+          <div style="padding:16px 20px 18px;border-top:1px solid #E3E0D3;display:flex;flex-direction:column;gap:14px">
+            <div style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#6B6A64">{{ g.title }}</div>
+            <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="2">
+              <div>
+              <sc-if value="{{ it.isToggle }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ it.toggle }}" style="width:100%;display:flex;align-items:center;justify-content:space-between;background:transparent;border:0;padding:0;font-size:13.5px;color:#141413;text-align:left"><span>{{ it.label }}</span><span style="width:34px;height:20px;border-radius:99px;position:relative;flex:none;{{ it.sty }}"><span style="position:absolute;top:2px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);{{ it.knob }}"></span></span></button>
+              </sc-if>
+              <sc-if value="{{ it.isSlider }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:6px"><div style="display:flex;justify-content:space-between;font-size:13.5px"><span>{{ it.label }}</span><span style="font:500 12px 'JetBrains Mono',monospace;color:#4A4944">{{ it.disp }}</span></div>
+                <input type="range" min="{{ it.min }}" max="{{ it.max }}" step="{{ it.step }}" value="{{ it.v }}" onChange="{{ it.set }}" style="width:100%;margin:0"></div>
+              </sc-if>
+              <sc-if value="{{ it.isSeg }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:7px"><span style="font-size:13.5px">{{ it.label }}</span>
+                <div style="display:flex;background:#E4E0D0;border-radius:9px;padding:2px;gap:2px"><sc-for list="{{ it.opts }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.pick }}" style="flex:1;height:30px;border-radius:7px;border:0;font-size:12.5px;{{ o.sty }}">{{ o.label }}</button></sc-for></div></div>
+              </sc-if>
+              <sc-if value="{{ it.isSwatch }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:13.5px">{{ it.label }}</span>
+                <div style="display:flex;gap:10px"><sc-for list="{{ it.opts }}" as="o" hint-placeholder-count="5"><button onClick="{{ o.pick }}" style="width:28px;height:28px;border-radius:50%;padding:0;{{ o.sty }}"></button></sc-for></div></div>
+              </sc-if>
+              <sc-if value="{{ it.isCards }}" hint-placeholder-val="{{ false }}">
+                <div style="display:flex;flex-direction:column;gap:8px"><span style="font-size:13.5px">{{ it.label }}</span>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"><sc-for list="{{ it.opts }}" as="o" hint-placeholder-count="6"><button onClick="{{ o.pick }}" style="display:flex;flex-direction:column;gap:5px;padding:4px 4px 6px;border-radius:10px;background:transparent;font-size:12px;{{ o.sty }}"><span style="height:38px;border-radius:7px;display:grid;place-items:center;font:500 11px 'JetBrains Mono',monospace;{{ o.bg }}">{{ o.glyph }}</span>{{ o.label }}</button></sc-for></div></div>
+              </sc-if>
+              <sc-if value="{{ it.isText }}" hint-placeholder-val="{{ false }}">
+                <label style="display:flex;flex-direction:column;gap:6px;font-size:13.5px">{{ it.label }}<input value="{{ it.v }}" onChange="{{ it.set }}" style="height:38px;border:1px solid #D0CCBC;border-radius:9px;padding:0 11px;font-size:14px;background:#fff;color:#141413"></label>
+              </sc-if>
+              <sc-if value="{{ it.isInfo }}" hint-placeholder-val="{{ false }}">
+                <div style="font-size:12.5px;line-height:1.5;color:#4A4944;text-wrap:pretty">{{ it.label }}</div>
+              </sc-if>
+              <sc-if value="{{ it.isBtn }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ it.act }}" style="width:100%;height:36px;border-radius:9px;font-size:13px;font-weight:500;{{ it.sty }}">{{ it.label }}</button>
+              </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </sc-for>
+
+        <sc-if value="{{ isStep1 }}" hint-placeholder-val="{{ true }}">
+          <div style="padding:16px 20px 24px;border-top:1px solid #E3E0D3;display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;justify-content:space-between;font:500 11px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#6B6A64;margin-bottom:6px"><span>Points · {{ pointCount }}</span><button onClick="{{ clearRoute }}" style="border:0;background:transparent;font:inherit;letter-spacing:inherit;text-transform:inherit;color:#A8482A;padding:0">Clear</button></div>
+            <sc-if value="{{ bigRoute }}" hint-placeholder-val="{{ false }}"><div style="padding:12px 14px;border-radius:10px;background:#FAF9F5;border:1px solid #E3E0D3;font-size:12.5px;line-height:1.5;color:#4A4944"><div style="font:500 22px/1.1 'Newsreader',Georgia,serif;color:#141413;margin-bottom:4px">{{ pointCount }} points</div>Too many to list. Edit them directly on the map, or Clear to start over.</div></sc-if>
+            <sc-for list="{{ pointRows }}" as="r" hint-placeholder-count="4">
+              <div onClick="{{ r.pick }}" style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:8px;cursor:pointer;{{ r.sty }}">
+                <span style="width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font:500 11px 'JetBrains Mono',monospace;flex:none;{{ r.dot }}">{{ r.n }}</span>
+                <span style="flex:1;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.name }}</span>
+                <span style="font:400 11px 'JetBrains Mono',monospace;color:#6B6A64">{{ r.meta }}</span>
+                <button onClick="{{ r.del }}" style="width:22px;height:22px;border:0;background:transparent;border-radius:5px;color:#6B6A64;font-size:15px;line-height:1;padding:0" style-hover="background:#E4E0D0;color:#141413">×</button>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ isStep3 }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:16px 20px 24px;border-top:1px solid #E3E0D3;display:flex;flex-direction:column;gap:6px">
+            <div style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#6B6A64;margin-bottom:6px">Signs · {{ signCount }}</div>
+            <sc-for list="{{ signRows }}" as="r" hint-placeholder-count="2">
+              <div onClick="{{ r.pick }}" style="display:flex;align-items:center;gap:10px;padding:7px 9px;border-radius:8px;cursor:pointer;{{ r.sty }}"><span style="flex:1;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.name }}</span><span style="font:400 11px 'JetBrains Mono',monospace;color:#6B6A64">{{ r.meta }}</span></div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ isStep4 }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:16px 20px 24px;border-top:1px solid #E3E0D3;display:flex;flex-direction:column;gap:12px">
+            <div style="font:500 11px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#6B6A64">Zoom keyframes · {{ kfCount }}</div>
+            <div style="font-size:12.5px;line-height:1.5;color:#4A4944">Move the playhead, then capture the current zoom. The camera eases between keyframes.</div>
+            <button onClick="{{ addKf }}" style="height:36px;border-radius:9px;border:1px solid #D0CCBC;background:#FAF9F5;font-size:13px;font-weight:500" style-hover="background:#fff;border-color:#D97757">◆ Add keyframe at playhead</button>
+            <sc-for list="{{ kfRows }}" as="k" hint-placeholder-count="1">
+              <div style="display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:10px;background:#FAF9F5;border:1px solid #E3E0D3">
+                <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px"><span style="font:500 12px 'JetBrains Mono',monospace">◆ {{ k.time }}</span><span style="font:500 12px 'JetBrains Mono',monospace;color:#4A4944">{{ k.disp }}</span><button onClick="{{ k.del }}" style="border:0;background:transparent;color:#6B6A64;font-size:16px;padding:0 4px">×</button></div>
+                <input type="range" min="0.5" max="4.5" step="0.1" value="{{ k.z }}" onChange="{{ k.set }}" style="width:100%;margin:0">
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ isStep5 }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:16px 20px 24px;border-top:1px solid #E3E0D3;display:flex;flex-direction:column;gap:14px">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <sc-for list="{{ summary }}" as="x" hint-placeholder-count="4"><div style="padding:10px 12px;border-radius:10px;background:#FAF9F5;border:1px solid #E3E0D3"><div style="font:400 10.5px 'JetBrains Mono',monospace;color:#6B6A64;letter-spacing:.06em">{{ x.k }}</div><div style="font:500 17px/1.3 'Newsreader',Georgia,serif">{{ x.v }}</div></div></sc-for>
+            </div>
+            <button onClick="{{ expOne }}" style="height:44px;border-radius:10px;border:0;background:#B4532F;color:#fff;font-size:14px;font-weight:600" style-hover="background:#9C4526">Export this scene</button>
+            <button onClick="{{ expAll }}" style="height:44px;border-radius:10px;border:1px solid #141413;background:transparent;font-size:14px;font-weight:600" style-hover="background:#141413;color:#FAF9F5">Export all {{ sceneCount }} scenes</button>
+            <div style="font-size:12px;line-height:1.5;color:#6B6A64">Rendered in your browser. Nothing is uploaded.</div>
+          </div>
+        </sc-if>
+      </div>
+    </aside>
+
+    <main style="flex:1;min-width:0;display:flex;flex-direction:column">
+      <div ref="{{ stageRef }}" onMouseDown="{{ stageDown }}" onWheel="{{ wheel }}" style="position:relative;flex:1;min-height:0;overflow:hidden;user-select:none;perspective:1400px;background:{{ thLand }};cursor:{{ cursor }}">
+        <div style="position:absolute;left:0;top:0;width:0;height:0;transform-origin:0 0;{{ layerStyle }}">
+          <sc-if value="{{ look.roads }}" hint-placeholder-val="{{ true }}"><div style="position:absolute;left:-3000px;top:-3000px;width:6000px;height:6000px;transform:rotate(-14deg);{{ gridStyle }}"></div></sc-if>
+          <sc-if value="{{ look.regions }}" hint-placeholder-val="{{ false }}">
+            <sc-for list="{{ regions }}" as="r" hint-placeholder-count="3"><div style="position:absolute;left:300px;width:3000px;{{ r.box }}"></div><div style="position:absolute;transform-origin:0 0;font:600 12px 'Instrument Sans';letter-spacing:.3em;white-space:nowrap;{{ r.lab }}">{{ r.name }}</div></sc-for>
+          </sc-if>
+          <sc-if value="{{ look.terrain }}" hint-placeholder-val="{{ false }}"><sc-for list="{{ hills }}" as="h" hint-placeholder-count="3"><div style="position:absolute;{{ h.sty }}"></div></sc-for></sc-if>
+          <div style="position:absolute;left:-3000px;top:-3000px;width:3340px;height:6000px;background:{{ thSea }};clip-path:polygon(0 0,3340px 0,3330px 3100px,3300px 3250px,3330px 3420px,3280px 3560px,3250px 3700px,3210px 3820px,3260px 3900px,3250px 6000px,0 6000px)"></div>
+          <sc-if value="{{ showLabels }}" hint-placeholder-val="{{ true }}"><div style="position:absolute;left:70px;top:380px;transform-origin:0 0;transform:scale({{ lk }});font:italic 400 17px 'Newsreader',serif;letter-spacing:.18em;white-space:nowrap;color:{{ thInk }};opacity:.7">Atlantic Ocean</div></sc-if>
+          <sc-for list="{{ cityLabels }}" as="c" hint-placeholder-count="6">
+            <div style="position:absolute;transform-origin:0 0;display:flex;align-items:center;gap:6px;white-space:nowrap;{{ c.sty }}"><span style="width:6px;height:6px;border-radius:50%;background:{{ thInk }};flex:none"></span><span style="color:{{ thInk }};text-shadow:0 0 3px {{ thHalo }},0 0 3px {{ thHalo }},0 0 6px {{ thHalo }};{{ c.font }}">{{ c.n }}</span></div>
+          </sc-for>
+          <svg width="1" height="1" style="position:absolute;left:0;top:0;overflow:visible;pointer-events:none">
+            <sc-for list="{{ leaders }}" as="l" hint-placeholder-count="1"><line x1="{{ l.x1 }}" y1="{{ l.y1 }}" x2="{{ l.x2 }}" y2="{{ l.y2 }}" style="{{ l.sty }}"></line></sc-for>
+            <sc-if value="{{ hasCasing }}" hint-placeholder-val="{{ false }}"><polyline points="{{ trailPts }}" style="{{ casingStyle }}"></polyline></sc-if>
+            <sc-if value="{{ look.ghost }}" hint-placeholder-val="{{ true }}"><polyline points="{{ fullPts }}" style="{{ ghostStyle }}"></polyline></sc-if>
+            <polyline points="{{ trailPts }}" style="{{ trailStyle }}"></polyline>
+            <sc-if value="{{ look.startDot }}" hint-placeholder-val="{{ true }}"><circle cx="{{ startX }}" cy="{{ startY }}" r="{{ dotR }}" style="{{ startStyle }}"></circle></sc-if>
+            <sc-if value="{{ endMark }}" hint-placeholder-val="{{ true }}"><circle cx="{{ endX }}" cy="{{ endY }}" r="{{ dotR }}" style="{{ endStyle }}"></circle></sc-if>
+            <sc-if value="{{ hasTip }}" hint-placeholder-val="{{ true }}">
+              <g style="transform:translate({{ tipX }}px,{{ tipY }}px) rotate({{ tipH }}deg) scale({{ tipS }})">
+                <sc-if value="{{ tipIs.pulse }}" hint-placeholder-val="{{ true }}"><circle r="17" style="fill:{{ lineColor }};opacity:.28"></circle><circle r="9" style="fill:{{ lineColor }};stroke:#FAF9F5;stroke-width:3"></circle></sc-if>
+                <sc-if value="{{ tipIs.dot }}" hint-placeholder-val="{{ false }}"><circle r="8" style="fill:{{ lineColor }};stroke:#FAF9F5;stroke-width:3"></circle></sc-if>
+                <sc-if value="{{ tipIs.arrow }}" hint-placeholder-val="{{ false }}"><polygon points="0,-15 11,11 0,5 -11,11" style="fill:{{ lineColor }};stroke:#FAF9F5;stroke-width:2.5;stroke-linejoin:round"></polygon></sc-if>
+                <sc-if value="{{ tipIs.pin }}" hint-placeholder-val="{{ false }}"><circle r="11" style="fill:{{ lineColor }};stroke:#FAF9F5;stroke-width:3"></circle><circle r="4" style="fill:#FAF9F5"></circle></sc-if>
+                <sc-if value="{{ tipIs.diamond }}" hint-placeholder-val="{{ false }}"><polygon points="0,-13 11,0 0,13 -11,0" style="fill:{{ lineColor }};stroke:#FAF9F5;stroke-width:2.5;stroke-linejoin:round"></polygon></sc-if>
+                <sc-if value="{{ tipIs.plane }}" hint-placeholder-val="{{ false }}"><polygon points="0,-17 3,-5 17,4 17,8 3,5 2,13 7,16 7,18 0,16 -7,18 -7,16 -2,13 -3,5 -17,8 -17,4 -3,-5" style="fill:{{ lineColor }};stroke:#FAF9F5;stroke-width:2;stroke-linejoin:round"></polygon></sc-if>
+              </g>
+            </sc-if>
+          </svg>
+          <sc-if value="{{ isStep1 }}" hint-placeholder-val="{{ true }}">
+            <sc-for list="{{ mids }}" as="m" hint-placeholder-count="2"><div onMouseDown="{{ m.down }}" title="Drag to add a point" style="position:absolute;transform-origin:0 0;width:12px;height:12px;border-radius:50%;background:#FAF9F5;border:2px solid #D97757;cursor:copy;{{ m.sty }}"></div></sc-for>
+            <sc-for list="{{ handles }}" as="h" hint-placeholder-count="4"><div onMouseDown="{{ h.down }}" onContextMenu="{{ h.ctx }}" style="position:absolute;transform-origin:0 0;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font:500 10px 'JetBrains Mono',monospace;cursor:grab;box-shadow:0 2px 6px rgba(0,0,0,.3);{{ h.sty }}">{{ h.n }}</div></sc-for>
+          </sc-if>
+          <sc-for list="{{ signsMap }}" as="g" hint-placeholder-count="2">
+            <div onMouseDown="{{ g.down }}" style="position:absolute;transform-origin:0 0;width:max-content;cursor:{{ g.cur }};{{ g.sty }}">
+              <sc-if value="{{ g.isPostcard }}" hint-placeholder-val="{{ true }}"><div style="position:relative;background:#FFFDF8;padding:12px 16px 11px;border-radius:3px;box-shadow:0 8px 22px rgba(20,20,19,.28);transform:rotate(-2deg);min-width:130px"><div style="position:absolute;left:50%;top:-8px;width:44px;height:16px;margin-left:-22px;background:rgba(217,119,87,.75);transform:rotate(2deg)"></div><div style="font:500 21px/1.1 'Newsreader',Georgia,serif;color:#141413">{{ g.title }}</div><div style="font:500 10px/1.4 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#A8482A;margin-top:4px">{{ g.sub }}</div></div></sc-if>
+              <sc-if value="{{ g.isPost }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;align-items:center"><div style="background:#7A5238;border:2px solid #4F3322;color:#FAF9F5;padding:9px 30px 9px 16px;clip-path:polygon(0 0,90% 0,100% 50%,90% 100%,0 100%);box-shadow:0 8px 20px rgba(0,0,0,.3);min-width:130px"><div style="font:600 17px/1.1 'Instrument Sans',sans-serif;letter-spacing:.02em">{{ g.title }}</div><div style="font:400 10.5px/1.4 'JetBrains Mono',monospace;opacity:.9;margin-top:3px">{{ g.sub }}</div></div></div></sc-if>
+              <sc-if value="{{ g.isTicket }}" hint-placeholder-val="{{ false }}"><div style="display:flex;background:#D97757;color:#141413;border-radius:8px;box-shadow:0 8px 20px rgba(0,0,0,.28);overflow:hidden"><div style="padding:10px 14px;min-width:110px"><div style="font:500 10px 'JetBrains Mono',monospace;letter-spacing:.12em">ADMIT ONE</div><div style="font:500 20px/1.1 'Newsreader',Georgia,serif;margin-top:2px">{{ g.title }}</div></div><div style="border-left:2px dashed rgba(20,20,19,.55);padding:10px 12px;display:flex;align-items:center;font:500 11px 'JetBrains Mono',monospace;max-width:120px">{{ g.sub }}</div></div></sc-if>
+              <sc-if value="{{ g.isTag }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:9px;background:#141413;color:#FAF9F5;padding:8px 15px 8px 11px;border-radius:99px;box-shadow:0 6px 16px rgba(0,0,0,.3)"><span style="width:9px;height:9px;border-radius:50%;background:#D97757"></span><span style="font:600 14px 'Instrument Sans',sans-serif">{{ g.title }}</span><span style="font:400 11px 'JetBrains Mono',monospace;opacity:.75">{{ g.sub }}</span></div></sc-if>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="position:absolute;pointer-events:none;box-shadow:0 0 0 4000px rgba(20,20,19,.52);border:2px solid #FAF9F5;border-radius:3px;{{ clipStyle }}">
+          <div style="position:absolute;left:-2px;bottom:100%;margin-bottom:8px;display:flex;gap:8px;align-items:center;white-space:nowrap;font:500 11px 'JetBrains Mono',monospace;color:#FAF9F5;background:rgba(20,20,19,.78);padding:4px 9px;border-radius:6px">{{ clipLabel }}</div>
+        </div>
+
+        <sc-if value="{{ emptyHint }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;inset:0;display:grid;place-items:center;pointer-events:none"><div style="pointer-events:auto;background:#FAF9F5;border-radius:16px;padding:22px 26px;max-width:340px;text-align:center;box-shadow:0 16px 48px rgba(0,0,0,.28);display:flex;flex-direction:column;gap:10px"><div style="font:500 24px/1.15 'Newsreader',Georgia,serif">Click the map to drop your first point</div><div style="font-size:13px;line-height:1.5;color:#4A4944">Keep clicking to extend the route. Or bring one in:</div><div style="display:flex;gap:8px;justify-content:center"><button onClick="{{ pickFile }}" style="height:34px;padding:0 14px;border-radius:8px;border:1px solid #D0CCBC;background:#fff;font-size:13px;font-weight:500">GPX</button><button onClick="{{ pickFile }}" style="height:34px;padding:0 14px;border-radius:8px;border:1px solid #D0CCBC;background:#fff;font-size:13px;font-weight:500">JSON timeline</button></div></div></div>
+        </sc-if>
+        <sc-if value="{{ canEditView }}" hint-placeholder-val="{{ true }}">
+          <div style="position:absolute;left:14px;top:14px;display:flex;flex-direction:column;gap:2px;padding:4px;background:#FAF9F5;border-radius:12px;box-shadow:0 4px 18px rgba(0,0,0,.22);border:1px solid #E3E0D3">
+            <sc-for list="{{ toolBtns }}" as="b" hint-placeholder-count="6">
+              <div style="display:flex;flex-direction:column">
+                <sc-if value="{{ b.sep }}" hint-placeholder-val="{{ false }}"><div style="height:1px;background:#E3E0D3;margin:3px 5px 5px"></div></sc-if>
+                <button title="{{ b.title }}" onClick="{{ b.act }}" style="position:relative;width:38px;height:38px;border-radius:8px;border:0;display:grid;place-items:center;padding:0;{{ b.sty }}"><svg width="20" height="20" viewBox="0 0 20 20" style="fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round"><path d="{{ b.d }}"></path></svg></button>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+        <div style="position:absolute;left:14px;bottom:12px;font:400 10.5px 'JetBrains Mono',monospace;color:{{ thInk }};opacity:.75">{{ stageHint }}</div>
+        <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}"><div style="position:absolute;left:50%;bottom:20px;transform:translateX(-50%);background:#141413;color:#FAF9F5;padding:9px 16px;border-radius:99px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.3)">{{ toast }}</div></sc-if>
+      </div>
+
+      <div style="height:clamp(150px,26vh,216px);flex:none;border-top:1px solid #E3E0D3;background:#FAF9F5;display:flex;flex-direction:column">
+        <div style="height:42px;flex:none;display:flex;align-items:center;gap:12px;padding:0 14px;border-bottom:1px solid #EDEBE0">
+          <button onClick="{{ rewind }}" title="Back to start" style="width:32px;height:32px;border-radius:8px;border:1px solid #E3E0D3;background:#FAF9F5;display:grid;place-items:center;padding:0" style-hover="background:#F2F0E8"><span style="display:flex;gap:2px;align-items:center"><span style="width:2px;height:10px;background:#141413"></span><span style="border-right:8px solid #141413;border-top:5px solid transparent;border-bottom:5px solid transparent"></span></span></button>
+          <button onClick="{{ play }}" style="height:32px;padding:0 16px 0 12px;border-radius:8px;border:0;background:#141413;color:#FAF9F5;display:flex;align-items:center;gap:9px;font-size:13px;font-weight:600"><span style="{{ playGlyph }}"></span>{{ playLabel }}</button>
+          <div style="font:500 13px 'JetBrains Mono',monospace;display:flex;gap:6px;align-items:baseline"><span>{{ timeNow }}</span><span style="color:#6B6A64;font-size:12px">/ {{ timeTotal }}</span></div>
+          <div style="flex:1"></div>
+          <span style="font-size:12px;color:#6B6A64">Drag the playhead to scrub · <span style="font-family:'JetBrains Mono',monospace">Space</span> plays</span>
+        </div>
+        <div ref="{{ tlRef }}" onMouseDown="{{ tlDown }}" style="position:relative;flex:1;min-height:0;display:flex;flex-direction:column;cursor:col-resize;user-select:none">
+          <div style="display:grid;grid-template-columns:108px 1fr;height:24px;flex:none"><div></div><div style="position:relative;border-bottom:1px solid #EDEBE0"><sc-for list="{{ ticks }}" as="t" hint-placeholder-count="6"><div style="position:absolute;top:0;bottom:0;border-left:1px solid #E3E0D3;padding:5px 0 0 5px;font:400 10px 'JetBrains Mono',monospace;color:#6B6A64;{{ t.sty }}">{{ t.label }}</div></sc-for></div></div>
+          <div style="display:grid;grid-template-columns:108px 1fr;flex:1;min-height:0;border-bottom:1px solid #EDEBE0"><div style="display:flex;align-items:center;gap:8px;padding-left:14px;font-size:12.5px;font-weight:600"><span style="width:8px;height:8px;border-radius:2px;background:#D97757"></span>Line</div>
+            <div style="position:relative;margin:6px 0"><sc-for list="{{ lineSegs }}" as="b" hint-placeholder-count="3"><div style="position:absolute;top:0;bottom:0;border-radius:5px;display:flex;align-items:center;padding:0 8px;overflow:hidden;white-space:nowrap;font:500 11px 'JetBrains Mono',monospace;{{ b.sty }}">{{ b.l }}</div></sc-for></div></div>
+          <div style="display:grid;grid-template-columns:108px 1fr;flex:1;min-height:0;border-bottom:1px solid #EDEBE0"><div style="display:flex;align-items:center;gap:8px;padding-left:14px;font-size:12.5px;font-weight:600"><span style="width:8px;height:8px;border-radius:2px;background:#6A9BCC"></span>Camera</div>
+            <div style="position:relative;margin:6px 0"><div style="position:absolute;top:0;bottom:0;border-radius:5px;background:#DCE8F3;display:flex;align-items:center;padding:0 10px;font:500 11px 'JetBrains Mono',monospace;color:#2E4B66;white-space:nowrap;overflow:hidden;{{ camBar }}">{{ camLabel }}</div>
+            <sc-for list="{{ kfDots }}" as="k" hint-placeholder-count="1"><div style="position:absolute;top:50%;width:13px;height:13px;margin:-6px 0 0 -6px;transform:rotate(45deg);background:#2E4B66;border:2px solid #FAF9F5;box-shadow:0 0 0 1px #2E4B66;{{ k.sty }}"></div></sc-for></div></div>
+          <div style="display:grid;grid-template-columns:108px 1fr;flex:1;min-height:0"><div style="display:flex;align-items:center;gap:8px;padding-left:14px;font-size:12.5px;font-weight:600"><span style="width:8px;height:8px;border-radius:2px;background:#788C5D"></span>Signs</div>
+            <div style="position:relative;margin:6px 0"><sc-for list="{{ signPills }}" as="s" hint-placeholder-count="2"><div style="position:absolute;top:0;bottom:0;display:flex;align-items:center;gap:6px;padding:0 9px;border-radius:5px;font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;background:#E3EAD8;color:#3B4A27;border-left:3px solid #788C5D;{{ s.sty }}">{{ s.label }}</div></sc-for></div></div>
+          <div style="position:absolute;top:0;bottom:0;width:0;pointer-events:none;left:{{ phLeft }}"><div style="position:absolute;top:0;bottom:0;left:-1px;width:2px;background:#141413"></div><div style="position:absolute;top:0;left:-7px;width:14px;height:16px;background:#141413;clip-path:polygon(0 0,100% 0,100% 55%,50% 100%,0 55%)"></div></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <sc-if value="{{ expOpen }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;inset:0;background:rgba(20,20,19,.5);display:grid;place-items:center;z-index:60">
+    <div style="width:520px;max-width:92vw;background:#FAF9F5;border-radius:18px;padding:26px;display:flex;flex-direction:column;gap:18px;box-shadow:0 24px 80px rgba(0,0,0,.35)">
+      <div style="font:500 26px/1.1 'Newsreader',Georgia,serif">{{ expTitle }}</div>
+      <div style="display:flex;flex-direction:column;gap:12px"><sc-for list="{{ expRows }}" as="r" hint-placeholder-count="2"><div style="display:flex;flex-direction:column;gap:6px"><div style="display:flex;justify-content:space-between;font-size:13.5px"><span style="font-weight:600">{{ r.name }}</span><span style="font:400 11.5px 'JetBrains Mono',monospace;color:#6B6A64">{{ r.meta }}</span></div><div style="height:8px;border-radius:99px;background:#E8E4D6;overflow:hidden"><div style="height:100%;background:#D97757;border-radius:99px;{{ r.bar }}"></div></div></div></sc-for></div>
+      <div style="display:flex;justify-content:flex-end;gap:10px"><button onClick="{{ closeExp }}" style="height:40px;padding:0 20px;border-radius:10px;border:1px solid #D0CCBC;background:#FAF9F5;font-size:14px;font-weight:600">{{ expBtn }}</button></div>
+    </div>
+  </div>
+  </sc-if>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;initialView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;projects&quot;,&quot;editor&quot;],&quot;default&quot;:&quot;projects&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Start&quot;},&quot;initialStep&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;1&quot;,&quot;2&quot;,&quot;3&quot;,&quot;4&quot;,&quot;5&quot;],&quot;default&quot;:&quot;1&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Start&quot;}}">
+class Component extends DCLogic {
+  W = 1200; H = 900;
+  state = this.init();
+  THEMES = [
+    { id: 'paper', name: 'Paper', land: '#EFEBE0', sea: '#C6DADD', grid: 'rgba(20,20,19,.07)', ink: '#3F3E3A', halo: '#EFEBE0' },
+    { id: 'mono', name: 'Mono', land: '#E7E6E2', sea: '#CDCDC8', grid: 'rgba(20,20,19,.08)', ink: '#33332F', halo: '#E7E6E2' },
+    { id: 'terrain', name: 'Terrain', land: '#DCE1C4', sea: '#A8CAD8', grid: 'rgba(80,100,50,.14)', ink: '#38431F', halo: '#DCE1C4' },
+    { id: 'sat', name: 'Satellite', land: '#56654A', sea: '#2C4658', grid: 'rgba(255,255,255,.05)', ink: '#F4F2E8', halo: '#56654A' },
+    { id: 'dark', name: 'Night', land: '#2A2A27', sea: '#141413', grid: 'rgba(255,255,255,.06)', ink: '#D4D2C6', halo: '#2A2A27' },
+    { id: 'blue', name: 'Blueprint', land: '#27496D', sea: '#1A3452', grid: 'rgba(255,255,255,.12)', ink: '#E2ECF7', halo: '#27496D' }
+  ];
+  TIPS = [['pulse', 'Pulse'], ['dot', 'Dot'], ['arrow', 'Arrow'], ['pin', 'Pin'], ['diamond', 'Diamond'], ['plane', 'Plane']];
+  SIGNS = [['postcard', 'Postcard'], ['post', 'Signpost'], ['ticket', 'Ticket'], ['tag', 'Tag']];
+  CITIES = [{ n: 'Lisbon', x: 430, y: 770, big: 1 }, { n: 'Sintra', x: 330, y: 722 }, { n: 'Évora', x: 700, y: 805 }, { n: 'Óbidos', x: 440, y: 560 }, { n: 'Tomar', x: 700, y: 520 }, { n: 'Leiria', x: 520, y: 470 }, { n: 'Coimbra', x: 560, y: 380, big: 1 }, { n: 'Viseu', x: 800, y: 280 }, { n: 'Guarda', x: 960, y: 340 }, { n: 'Aveiro', x: 620, y: 210 }, { n: 'Braga', x: 800, y: 70 }, { n: 'Porto', x: 700, y: 140, big: 1 }];
+  TITLES = ['Route', 'Look', 'Signs', 'Camera', 'Preview & export'];
+  DESCS = ['Click to draw, import a GPX or a dated JSON timeline, then drag points to reshape.', 'Map style, labels and the look of the line. Appearance only — motion comes later.', 'Add signboards on or off the route. Choose whether the line stops for them.', 'Decide how the camera moves: follow, pan, zoom, rotate.', 'Set pace and pauses, then pick resolution and frame rate.'];
+
+  rid() { return Math.random().toString(36).slice(2, 7); }
+  mkScene(name, points, over) {
+    return Object.assign({
+      id: this.rid(), name, ratio: '16:9', smooth: true, points, signs: [],
+      look: { theme: 'paper', labels: 'cities', regions: false, roads: true, terrain: false, hill: 60, color: '#D97757', width: 6, style: 'solid', casing: true, glow: false, ghost: true, tip: 'pulse', tipSize: 1, startDot: true, endDot: true },
+      cam: { mode: 'follow', orient: 'north', zoom: 1.7, ahead: 8, smooth: 50, tilt: 0, intro: true, outro: true, kfs: [] },
+      exp: { speed: 1.2, ease: 50, pre: 1, post: 2, res: '1080p', fps: 30, fmt: 'mp4' }
+    }, over || {});
+  }
+  seed() {
+    const B = [[430, 770, 'Lisbon', '3 Oct'], [470, 660], [440, 560, 'Óbidos', '4 Oct'], [520, 470], [560, 380, 'Coimbra', '5 Oct'], [640, 300], [620, 210], [700, 140, 'Porto', '7 Oct']];
+    const pts = f => B.map(b => { const q = f(b[0], b[1]); return { x: q[0], y: q[1], name: b[2], date: b[3] }; });
+    const now = Date.now();
+    const s1 = this.mkScene('Lisbon → Porto', pts((x, y) => [x, y]));
+    s1.signs = [
+      { id: 'a1', x: 640, y: 740, title: 'Lisbon', sub: 'Day 1 · Start', style: 'postcard', trigger: 'pause', pause: 2, size: 1 },
+      { id: 'a2', x: 250, y: 600, title: 'Óbidos', sub: 'Walled town', style: 'post', trigger: 'reach', pause: 2, size: 1 },
+      { id: 'a3', x: 730, y: 440, title: 'Coimbra', sub: 'Day 3', style: 'ticket', trigger: 'pause', pause: 1.5, size: 1 },
+      { id: 'a4', x: 840, y: 200, title: 'Porto', sub: 'Finish', style: 'postcard', trigger: 'pause', pause: 3, size: 1 }];
+    const D = [[700, 140, 'Porto'], [790, 170], [880, 190], [960, 250], [1040, 280, 'Peso da Régua']];
+    const s2 = this.mkScene('Porto → Douro', D.map(d => ({ x: d[0], y: d[1], name: d[2] })), { ratio: '9:16' });
+    s2.look.theme = 'terrain'; s2.look.terrain = true; s2.look.tip = 'arrow'; s2.look.color = '#B4532F';
+    const a = this.mkScene('Cusco → Machu Picchu', pts((x, y) => [1200 - x * 0.9, y * 0.95 + 20]), { ratio: '9:16' });
+    a.look.theme = 'sat'; a.look.terrain = true; a.look.color = '#FAF9F5'; a.look.tip = 'dot'; a.look.labels = 'off';
+    const j = [this.mkScene('Tokyo → Kyoto', pts((x, y) => [y * 1.2 + 80, 1000 - x * 1.1])), this.mkScene('Kyoto → Hiroshima', pts((x, y) => [x + 200, 900 - y])), this.mkScene('Hiroshima → Fukuoka', pts((x, y) => [1300 - x, y + 40]))];
+    j.forEach(s => { s.look.theme = 'dark'; s.look.color = '#E8B931'; s.look.glow = true; s.look.tip = 'plane'; s.look.labels = 'off'; });
+    return [
+      { id: 'p1', name: 'Portugal Coast Road Trip', updated: now - 2 * 3600e3, scenes: [s1, s2] },
+      { id: 'p2', name: 'Andes Trek', updated: now - 3 * 86400e3, scenes: [a] },
+      { id: 'p3', name: 'Japan Rail Journey', updated: now - 12 * 86400e3, scenes: j }];
+  }
+  init() {
+    let pr = null;
+    try { pr = JSON.parse(localStorage.getItem('wayline.v1')); } catch (e) { }
+    if (!Array.isArray(pr) || !pr.length) pr = this.seed();
+    const ed = (this.props && this.props.initialView) === 'editor';
+    return { view: ed ? 'editor' : 'projects', projects: pr, pid: ed ? pr[0].id : null, si: 0, step: ed ? Number((this.props && this.props.initialStep) || 1) : 1, tool: 'draw', sel: -1, selSign: null, tm: -1, playing: false, sw: 1000, sh: 560, ev: { x: 600, y: 450, z: null }, newOpen: false, newName: 'Untitled journey', newRatio: '16:9', newStart: 'Draw on map', confirmDel: null, exp: null, toast: '' };
+  }
+  persist(p) { try { localStorage.setItem('wayline.v1', JSON.stringify(p)); } catch (e) { } }
+  sc() { const p = this.state.projects.find(p => p.id === this.state.pid); return p ? (p.scenes[this.state.si] || p.scenes[0]) : null; }
+  mod(fn) {
+    const { pid, si } = this.state;
+    const projects = this.state.projects.map(p => p.id !== pid ? p : Object.assign({}, p, { updated: Date.now(), scenes: p.scenes.map((s, i) => i === si ? fn(s) : s) }));
+    this.setState({ projects }); this.persist(projects);
+  }
+  setV(g, k, v) { this.mod(s => Object.assign({}, s, { [g]: Object.assign({}, s[g], { [k]: v }) })); }
+  say(t) { this.setState({ toast: t }); clearTimeout(this._tt); this._tt = setTimeout(() => this.setState({ toast: '' }), 2600); }
+  ss(x) { return x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x); }
+  fmt(t) { const m = Math.floor(t / 60), s = t - m * 60; return String(m).padStart(2, '0') + ':' + s.toFixed(1).padStart(4, '0'); }
+  ago(ts) { const d = (Date.now() - ts) / 1000; if (d < 90) return 'just now'; if (d < 3600) return Math.round(d / 60) + ' min ago'; if (d < 86400) return Math.round(d / 3600) + ' h ago'; return Math.round(d / 86400) + ' d ago'; }
+
+  /* ---------- items ---------- */
+  tgl(label, g, k) { const on = !!this.S[g][k]; return { isToggle: true, label, toggle: () => this.setV(g, k, !on), sty: on ? 'background:#D97757' : 'background:#BDB9A8', knob: on ? 'left:16px' : 'left:2px' }; }
+  sld(label, g, k, min, max, step, f) { const v = this.S[g][k]; return { isSlider: true, label, v, min, max, step, disp: f(v), set: e => this.setV(g, k, parseFloat(e.target.value)) }; }
+  seg(label, g, k, opts) { const c = this.S[g][k]; return { isSeg: true, label, opts: opts.map(o => ({ label: o[1], pick: () => this.setV(g, k, o[0]), sty: c === o[0] ? 'background:#FAF9F5;color:#141413;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.15)' : 'background:transparent;color:#4A4944' })) }; }
+  segF(label, cur, opts) { return { isSeg: true, label, opts: opts.map(o => ({ label: o[1], pick: o[2], sty: cur === o[0] ? 'background:#FAF9F5;color:#141413;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.15)' : 'background:transparent;color:#4A4944' })) }; }
+  txt(label, v, set) { return { isText: true, label, v, set: e => set(e.target.value) }; }
+
+  /* ---------- model ---------- */
+  model() {
+    const s = this.sc(); if (!s) return null;
+    const P = s.points, N = 22; let S = [], idx = [];
+    if (P.length >= 2 && s.smooth !== false) {
+      for (let i = 0; i < P.length - 1; i++) {
+        const a = P[Math.max(0, i - 1)], b = P[i], c = P[i + 1], d = P[Math.min(P.length - 1, i + 2)];
+        idx.push(S.length);
+        for (let k = 0; k < N; k++) {
+          const t = k / N, t2 = t * t, t3 = t2 * t;
+          const f = (p0, p1, p2, p3) => 0.5 * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
+          S.push({ x: f(a.x, b.x, c.x, d.x), y: f(a.y, b.y, c.y, d.y) });
+        }
+      }
+      idx.push(S.length); S.push({ x: P[P.length - 1].x, y: P[P.length - 1].y });
+    } else { S = P.map(p => ({ x: p.x, y: p.y })); idx = S.map((_, i) => i); }
+    const C = [0]; for (let i = 1; i < S.length; i++) C[i] = C[i - 1] + Math.hypot(S[i].x - S[i - 1].x, S[i].y - S[i - 1].y);
+    const L = C[S.length - 1] || 1;
+    const pos = p => {
+      if (!S.length) return { x: 600, y: 450 }; if (S.length === 1) return S[0];
+      const t = Math.max(0, Math.min(1, p)) * L; let lo = 0, hi = S.length - 1;
+      while (hi - lo > 1) { const m = (lo + hi) >> 1; if (C[m] <= t) lo = m; else hi = m; }
+      const f = (t - C[lo]) / ((C[hi] - C[lo]) || 1);
+      return { x: S[lo].x + (S[hi].x - S[lo].x) * f, y: S[lo].y + (S[hi].y - S[lo].y) * f };
+    };
+    const heading = (p, d) => { const a = pos(p - d), b = pos(p + d); return Math.atan2(b.x - a.x, -(b.y - a.y)) * 180 / Math.PI; };
+    const nearest = (x, y) => { let bi = 0, bd = 1e12; for (let i = 0; i < S.length; i++) { const d = (S[i].x - x) ** 2 + (S[i].y - y) ** 2; if (d < bd) { bd = d; bi = i; } } return S.length ? { p: C[bi] / L, x: S[bi].x, y: S[bi].y, d: Math.sqrt(bd) } : { p: 0, x: x, y: y, d: 0 }; };
+    const trail = p => { if (S.length < 2) return ''; const t = p * L, o = []; for (let i = 0; i < S.length && C[i] <= t; i++) o.push(S[i].x.toFixed(1) + ',' + S[i].y.toFixed(1)); const q = pos(p); o.push(q.x.toFixed(1) + ',' + q.y.toFixed(1)); return o.join(' '); };
+    const full = S.map(q => q.x.toFixed(1) + ',' + q.y.toFixed(1)).join(' ');
+    const e = s.exp, k = e.ease / 100;
+    const ease = u => (1 - k) * u + k * u * u * (3 - 2 * u);
+    const inv = p => { let a = 0, b = 1; for (let i = 0; i < 24; i++) { const m = (a + b) / 2; if (ease(m) < p) a = m; else b = m; } return (a + b) / 2; };
+    const travel = Math.max(2, L / (60 * e.speed));
+    const pauses = s.signs.filter(g => g.trigger === 'pause').map(g => ({ id: g.id, p: nearest(g.x, g.y).p, dur: g.pause })).sort((a, b) => a.p - b.p);
+    const dur = pauses.reduce((a, q) => a + q.dur, 0);
+    const T = e.pre + travel + dur + e.post;
+    const progressAt = t => {
+      let tau = t - e.pre; if (tau <= 0) return 0; let acc = 0;
+      for (const q of pauses) { const st = inv(q.p) * travel + acc; if (tau < st) break; if (tau < st + q.dur) return q.p; acc += q.dur; }
+      return Math.min(1, ease(Math.min(1, (tau - acc) / travel)));
+    };
+    const timeAtP = p => { let a = 0; for (const q of pauses) if (q.p < p - 1e-9) a += q.dur; return e.pre + inv(p) * travel + a; };
+    return { S, idx, C, L, N, pos, heading, nearest, trail, full, ease, inv, travel, pauses, T, progressAt, timeAtP };
+  }
+  zAt(s, p) {
+    const c = s.cam, kn = [{ p: 0, z: c.zoom }].concat([...c.kfs].sort((a, b) => a.p - b.p));
+    if (p <= kn[0].p) return kn[0].z;
+    for (let i = 0; i < kn.length - 1; i++) if (p < kn[i + 1].p) return kn[i].z + (kn[i + 1].z - kn[i].z) * this.ss((p - kn[i].p) / ((kn[i + 1].p - kn[i].p) || 1));
+    return kn[kn.length - 1].z;
+  }
+  camAt(m, s, p, cw, ch) {
+    const c = s.cam, P = s.points; let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+    P.forEach(q => { x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); });
+    if (!P.length) { x0 = 100; x1 = 1100; y0 = 100; y1 = 800; }
+    const bx = (x0 + x1) / 2, by = (y0 + y1) / 2, fit = Math.max(0.25, Math.min(4, Math.min(cw / (x1 - x0 + 180), ch / (y1 - y0 + 180))));
+    if (c.mode === 'overview') return { x: bx, y: by, z: fit, rot: 0 };
+    let q, z = this.zAt(s, p);
+    if (c.mode === 'pan' && P.length) { const a = P[0], b = P[P.length - 1]; q = { x: a.x + (b.x - a.x) * p, y: a.y + (b.y - a.y) * p }; } else q = m.pos(Math.min(1, p + c.ahead / 100 * 0.1));
+    let rot = c.orient === 'heading' && c.mode === 'follow' ? m.heading(p, 0.03 + c.smooth / 100 * 0.12) : 0;
+    const w = Math.max(c.intro ? 1 - this.ss(p / 0.12) : 0, c.outro ? this.ss((p - 0.88) / 0.12) : 0);
+    return { x: q.x + (bx - q.x) * w, y: q.y + (by - q.y) * w, z: z + (fit - z) * w, rot: rot * (1 - w) };
+  }
+  dims(s) {
+    const a = { '16:9': 16 / 9, '9:16': 9 / 16, '1:1': 1, '4:5': 4 / 5 }[s.ratio], b = { '720p': 720, '1080p': 1080, '1440p': 1440, '4K': 2160 }[s.exp.res];
+    const ev = n => Math.round(n / 2) * 2; return a >= 1 ? [ev(b * a), b] : [b, ev(b / a)];
+  }
+
+  /* ---------- lifecycle & interaction ---------- */
+  componentDidMount() {
+    window.addEventListener('mousemove', this.onMove); window.addEventListener('mouseup', this.onUp); window.addEventListener('keydown', this.onKey);
+  }
+  componentWillUnmount() {
+    window.removeEventListener('mousemove', this.onMove); window.removeEventListener('mouseup', this.onUp); window.removeEventListener('keydown', this.onKey);
+    cancelAnimationFrame(this._raf); clearInterval(this._xi);
+  }
+  stageRef = el => {
+    if (el === this._stage) return; if (this._ro) this._ro.disconnect(); this._stage = el;
+    if (el) { this._ro = new ResizeObserver(() => { const r = el.getBoundingClientRect(); if (Math.abs(r.width - this.state.sw) > 1 || Math.abs(r.height - this.state.sh) > 1) this.setState({ sw: r.width, sh: r.height }); }); this._ro.observe(el); }
+  };
+  tlRef = el => { this._tl = el; };
+  projFileRef = el => { this._pf = el; };
+  routeFileRef = el => { this._rf = el; };
+  toWorld(e) { const r = this._stage.getBoundingClientRect(), v = this.view; return { x: (e.clientX - r.left - v.sw / 2) / v.z + v.vx, y: (e.clientY - r.top - v.sh / 2) / v.z + v.vy }; }
+  tmFromX(e) { const r = this._tl.getBoundingClientRect(), f = Math.max(0, Math.min(1, (e.clientX - r.left - 108) / (r.width - 108))); return f * this.mdl.T; }
+  onKey = e => {
+    if (this.state.view !== 'editor') return; const tg = (e.target.tagName || '').toLowerCase(); if (tg === 'input' || tg === 'textarea') return;
+    if (e.key === 'Delete' || e.key === 'Backspace') { if (this.state.step === 1 && this.state.sel >= 0) this.delPoint(this.state.sel); if (this.state.step === 3 && this.state.selSign) this.delSign(this.state.selSign); }
+    if (e.key === ' ') { e.preventDefault(); this.play(); }
+  };
+  onMove = e => {
+    const d = this._drag; if (!d) return;
+    if (d.type === 'pan') { const v = this.view; this.setState({ ev: { x: d.ox - (e.clientX - d.sx) / v.z, y: d.oy - (e.clientY - d.sy) / v.z, z: this.state.ev.z } }); }
+    else if (d.type === 'pt') { const w = this.toWorld(e); this.mod(s => Object.assign({}, s, { points: s.points.map((p, i) => i === d.i ? Object.assign({}, p, { x: w.x, y: w.y }) : p) })); }
+    else if (d.type === 'sign') { const w = this.toWorld(e); this.mod(s => Object.assign({}, s, { signs: s.signs.map(g => g.id === d.id ? Object.assign({}, g, { x: w.x - d.ox, y: w.y - d.oy }) : g) })); }
+    else if (d.type === 'scrub') { this.setState({ tm: this.tmFromX(e), playing: false }); }
+  };
+  onUp = () => { this._drag = null; };
+  stageDown = e => {
+    const st = this.state; if (st.step >= 4) return;
+    if (e.button === 1) { e.preventDefault(); this._drag = { type: 'pan', sx: e.clientX, sy: e.clientY, ox: this.view.vx, oy: this.view.vy }; return; }
+    if (e.button !== 0) return; const w = this.toWorld(e);
+    if (st.step === 1 && st.tool === 'draw') { this.mod(s => Object.assign({}, s, { points: s.points.concat([{ x: w.x, y: w.y }]) })); this.setState({ sel: this.sc().points.length, tm: -1 }); return; }
+    this.setState({ sel: -1, selSign: null });
+    this._drag = { type: 'pan', sx: e.clientX, sy: e.clientY, ox: this.view.vx, oy: this.view.vy };
+  };
+  wheel = e => { if (this.state.step >= 4) return; const v = this.view, f = Math.exp(-e.deltaY * 0.0015), nz = Math.max(0.3, Math.min(6, v.z * f)), r = this._stage.getBoundingClientRect(), cx = e.clientX - r.left - v.sw / 2, cy = e.clientY - r.top - v.sh / 2; this.setState({ ev: { x: v.vx + cx / v.z - cx / nz, y: v.vy + cy / v.z - cy / nz, z: nz } }); };
+  zoomBy(f) { const v = this.view; this.setState({ ev: { x: v.vx, y: v.vy, z: Math.max(0.3, Math.min(6, v.z * f)) } }); }
+  zoomIn = () => this.zoomBy(1.3); zoomOut = () => this.zoomBy(1 / 1.3); zoomFit = () => this.setState({ ev: { x: 600, y: 450, z: null } });
+  delPoint(i) { this.mod(s => Object.assign({}, s, { points: s.points.filter((_, j) => j !== i) })); this.setState({ sel: -1, tm: -1 }); }
+  delSign(id) { this.mod(s => Object.assign({}, s, { signs: s.signs.filter(g => g.id !== id) })); this.setState({ selSign: null }); }
+  patchSign(id, patch) { this.mod(s => Object.assign({}, s, { signs: s.signs.map(g => g.id === id ? Object.assign({}, g, patch) : g) })); }
+  setStep(n) { this.setState({ step: n, playing: false, tm: n >= 4 ? 0 : -1, sel: -1 }); }
+  play = () => {
+    const m = this.mdl; if (!m) return;
+    if (this.state.playing) { this.setState({ playing: false }); return; }
+    let t = this.state.tm < 0 ? m.T : Math.min(this.state.tm, m.T); if (t >= m.T - 0.02) t = 0;
+    this.setState({ playing: true, tm: t }); this._last = performance.now();
+    const loop = now => {
+      if (!this.state.playing) return; const dt = (now - this._last) / 1000; this._last = now; const mm = this.mdl, t2 = this.state.tm + dt;
+      if (t2 >= mm.T) { this.setState({ tm: mm.T, playing: false }); return; }
+      this.setState({ tm: t2 }); this._raf = requestAnimationFrame(loop);
+    };
+    this._raf = requestAnimationFrame(loop);
+  };
+  rewind = () => this.setState({ tm: 0, playing: false });
+  tlDown = e => { this._drag = { type: 'scrub' }; this.setState({ tm: this.tmFromX(e), playing: false }); };
+  addSign(style) {
+    const m = this.mdl; if (!this.sc().points.length) { this.say('Draw a route first'); return; }
+    const q = m.pos(this.pNow < 0.03 ? 0.5 : this.pNow), id = 'g' + this.rid();
+    this.mod(s => Object.assign({}, s, { signs: s.signs.concat([{ id, x: q.x + 120, y: q.y - 70, title: 'New place', sub: 'Add a note', style, trigger: 'pause', pause: 2, size: 1 }]) }));
+    this.setState({ selSign: id });
+  }
+  goProjects = () => { this.setState({ view: 'projects', playing: false }); };
+  openProj(id) { this.setState({ view: 'editor', pid: id, si: 0, step: 1, tm: -1, sel: -1, selSign: null, playing: false, ev: { x: 600, y: 450, z: null } }); }
+  dl(p) { const b = new Blob([JSON.stringify({ wayline: 1, project: p }, null, 1)], { type: 'application/json' }), a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = (p.name || 'project').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.wayline.json'; a.click(); }
+  onProjFile = e => {
+    const f = e.target.files[0]; if (!f) return; const rd = new FileReader();
+    rd.onload = () => { try { const j = JSON.parse(rd.result), p = Object.assign({}, j.project || j, { id: 'p' + this.rid(), updated: Date.now() }); if (!p.scenes || !p.scenes.length) throw 0; const projects = [p].concat(this.state.projects); this.setState({ projects }); this.persist(projects); } catch (err) { alert('That file is not a Wayline project.'); } };
+    rd.readAsText(f); e.target.value = '';
+  };
+  createProject = () => {
+    const s = this.mkScene('Scene 1', [], { ratio: this.state.newRatio }), p = { id: 'p' + this.rid(), name: this.state.newName || 'Untitled journey', updated: Date.now(), scenes: [s] };
+    const projects = [p].concat(this.state.projects); this.persist(projects); const imp = this.state.newStart !== 'Draw on map';
+    this.setState({ projects, newOpen: false, view: 'editor', pid: p.id, si: 0, step: 1, tm: -1, sel: -1, ev: { x: 600, y: 450, z: null } });
+    if (imp && this._rf) this._rf.click();
+  };
+  addScene = () => { const c = this.sc(); const n = this.mkScene('Scene ' + (this.curProj().scenes.length + 1), [], { ratio: c.ratio, look: Object.assign({}, c.look), cam: Object.assign({}, c.cam, { kfs: [] }), exp: Object.assign({}, c.exp) }); this.addSceneObj(n); };
+  dupScene = () => { const c = this.sc(); this.addSceneObj(Object.assign({}, JSON.parse(JSON.stringify(c)), { id: this.rid(), name: c.name + ' copy' })); };
+  addSceneObj(n) { const { pid } = this.state; const projects = this.state.projects.map(p => p.id !== pid ? p : Object.assign({}, p, { updated: Date.now(), scenes: p.scenes.concat([n]) })); this.persist(projects); this.setState({ projects, si: this.curProj().scenes.length, sel: -1, selSign: null, tm: this.state.step >= 4 ? 0 : -1, ev: { x: 600, y: 450, z: null } }); }
+  curProj() { return this.state.projects.find(p => p.id === this.state.pid); }
+  parseRoute(name, txt) {
+    let pts = [];
+    try {
+      if (/\.(gpx|xml)$/i.test(name) || txt.trim().charAt(0) === '<') {
+        const d = new DOMParser().parseFromString(txt, 'text/xml'); let n = [...d.querySelectorAll('trkpt')]; if (!n.length) n = [...d.querySelectorAll('rtept')]; if (!n.length) n = [...d.querySelectorAll('wpt')];
+        pts = n.map(el => ({ lat: +el.getAttribute('lat'), lon: +el.getAttribute('lon'), date: (el.querySelector('time') || {}).textContent, name: (el.querySelector('name') || {}).textContent }));
+      } else {
+        let j = JSON.parse(txt); if (!Array.isArray(j)) j = j.points || j.timeline || j.locations || j.stops || [];
+        pts = j.map(o => ({ lat: +(o.lat != null ? o.lat : o.latitude), lon: +(o.lon != null ? o.lon : o.lng != null ? o.lng : o.longitude), date: o.date || o.time || o.timestamp, name: o.name || o.label || o.place }));
+      }
+    } catch (err) { this.say('Could not read that file'); return; }
+    pts = pts.filter(p => isFinite(p.lat) && isFinite(p.lon)); if (pts.length < 2) { this.say('No coordinates found in that file'); return; }
+    const k = Math.ceil(pts.length / 80); pts = pts.filter((p, i) => i % k === 0 || p.name || i === pts.length - 1);
+    const kx = Math.cos(pts.reduce((a, p) => a + p.lat, 0) / pts.length * Math.PI / 180);
+    const xs = pts.map(p => p.lon * kx), ys = pts.map(p => -p.lat), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const sc = Math.min(900 / ((x1 - x0) || 1), 600 / ((y1 - y0) || 1));
+    const fd = v => { if (!v) return ''; const d = new Date(v); return isNaN(d) ? String(v).slice(0, 10) : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }); };
+    const np = pts.map((p, i) => ({ x: 600 + (xs[i] - (x0 + x1) / 2) * sc, y: 450 + (ys[i] - (y0 + y1) / 2) * sc, name: p.name || '', date: fd(p.date) }));
+    const signs = np.filter(p => p.name).map(p => ({ id: 'g' + this.rid(), x: p.x + 90, y: p.y - 60, title: p.name, sub: p.date, style: 'tag', trigger: 'reach', pause: 2, size: 1 }));
+    this.mod(s => Object.assign({}, s, { points: np, signs: signs.length ? signs : s.signs }));
+    this.setState({ ev: { x: 600, y: 450, z: null }, sel: -1, tm: -1 }); this.say('Imported ' + np.length + ' points' + (signs.length ? ' · ' + signs.length + ' stops became signs' : ''));
+  }
+  onRouteFile = e => { const f = e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => this.parseRoute(f.name, rd.result); rd.readAsText(f); e.target.value = ''; };
+  startExport(all) {
+    const n = all ? this.curProj().scenes.length : 1; this.setState({ exp: { all, n, prog: 0 } }); clearInterval(this._xi);
+    this._xi = setInterval(() => { const e = this.state.exp; if (!e) { clearInterval(this._xi); return; } const pr = Math.min(1, e.prog + 0.02 / e.n * 1.6); this.setState({ exp: Object.assign({}, e, { prog: pr }) }); if (pr >= 1) clearInterval(this._xi); }, 90);
+  }
+
+  renderVals() {
+    const st = this.state, o = {};
+    const mkB = (title, d, act, on, sep, dis) => ({ title, d, act, sep: !!sep, sty: (on ? 'background:#141413;color:#FAF9F5;' : 'background:transparent;color:#141413;') + (dis ? 'opacity:.35;pointer-events:none;' : '') });
+    o.isProjects = st.view === 'projects'; o.isEditor = !o.isProjects;
+    const lists = ['16:9', '9:16', '1:1', '4:5'], btn = on => on ? 'background:#141413;color:#FAF9F5;border:1px solid #141413' : 'background:#fff;color:#141413;border:1px solid #D8D4C5';
+    o.projCards = st.projects.slice().sort((a, b) => b.updated - a.updated).map(p => {
+      const s0 = p.scenes[0], P = s0.points.length ? s0.points : [{ x: 430, y: 700 }, { x: 700, y: 140 }];
+      const xs = P.map(q => q.x), ys = P.map(q => q.y), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys), k = Math.min(210 / ((x1 - x0) || 1), 100 / ((y1 - y0) || 1));
+      const T = q => [140 + (q.x - (x0 + x1) / 2) * k, 75 + (q.y - (y0 + y1) / 2) * k], pp = P.map(T);
+      const th = this.THEMES.find(t => t.id === s0.look.theme) || this.THEMES[0];
+      return { id: p.id, name: p.name, meta: p.scenes.length + (p.scenes.length === 1 ? ' scene' : ' scenes') + ' · ' + this.ago(p.updated), ratio: s0.ratio, bg: 'linear-gradient(100deg,' + th.sea + ' 0 16%,' + th.land + ' 16%)', mini: pp.map(q => q[0].toFixed(1) + ',' + q[1].toFixed(1)).join(' '), sx: pp[0][0].toFixed(1), sy: pp[0][1].toFixed(1), open: () => this.openProj(p.id), dl: () => this.dl(p), del: () => this.setState({ confirmDel: p.id }), confirming: st.confirmDel === p.id, idle: st.confirmDel !== p.id, cancel: () => this.setState({ confirmDel: null }), confirm: () => { const projects = this.state.projects.filter(x => x.id !== p.id); this.persist(projects); this.setState({ projects, confirmDel: null }); } };
+    });
+    o.newOpen = st.newOpen; o.newName = st.newName; o.setNewName = e => this.setState({ newName: e.target.value });
+    o.newRatios = lists.map(r => ({ label: r, sty: btn(st.newRatio === r), pick: () => this.setState({ newRatio: r }) }));
+    o.newStarts = ['Draw on map', 'Import GPX', 'Import JSON timeline'].map(r => ({ label: r, sty: btn(st.newStart === r), pick: () => this.setState({ newStart: r }) }));
+    o.openNew = () => this.setState({ newOpen: true, newName: 'Untitled journey' }); o.closeNew = () => this.setState({ newOpen: false });
+    o.createProject = this.createProject; o.openFileClick = () => this._pf && this._pf.click(); o.projFileRef = this.projFileRef; o.onProjFile = this.onProjFile; o.routeFileRef = this.routeFileRef; o.onRouteFile = this.onRouteFile;
+    if (!o.isEditor) return o;
+
+    const s = this.S = this.sc(); const m = this.mdl = this.model(), step = st.step, look = s.look, cam = s.cam, ex = s.exp;
+    const T = m.T, tm = st.tm < 0 ? T : Math.min(st.tm, T), p = this.pNow = m.progressAt(tm);
+    const sw = st.sw, sh = st.sh, asp = { '16:9': 16 / 9, '9:16': 9 / 16, '1:1': 1, '4:5': 4 / 5 }[s.ratio];
+    let cw = Math.max(120, sw - 96), ch = cw / asp; if (ch > sh - 96) { ch = Math.max(120, sh - 96); cw = ch * asp; }
+    const fitS = Math.min(sw / this.W, sh / this.H) * 0.98; let vx, vy, z, rot = 0, tilt = 0;
+    if (step < 4) { vx = st.ev.x; vy = st.ev.y; z = st.ev.z || fitS; } else { const c = this.camAt(m, s, p, cw, ch); vx = c.x; vy = c.y; z = c.z; rot = c.rot; tilt = cam.tilt; }
+    this.view = { vx, vy, z, sw, sh };
+    const th = this.THEMES.find(t => t.id === look.theme) || this.THEMES[0], lk = 1 / z, col = look.color, proj = this.curProj();
+
+    o.projName = proj.name; o.step = step; o.stepTitle = this.TITLES[step - 1]; o.stepDesc = this.DESCS[step - 1];
+    o.isStep1 = step === 1; o.isStep3 = step === 3; o.isStep4 = step === 4; o.isStep5 = step === 5;
+    o.stepsArr = this.TITLES.map((t, i) => ({ n: i + 1, label: i === 4 ? 'Export' : t, go: () => this.setStep(i + 1), sty: step === i + 1 ? 'background:#FAF9F5;color:#141413;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.15)' : 'background:transparent;color:#4A4944', dot: step === i + 1 ? 'background:#D97757;color:#141413' : step > i + 1 ? 'background:#E3DACC;color:#141413' : 'background:transparent;color:#6B6A64;border:1px solid #C9C5B5' }));
+    o.ratios = lists.map(r => { const a = { '16:9': 16 / 9, '9:16': 9 / 16, '1:1': 1, '4:5': 0.8 }[r], h = a >= 1 ? 9 : 13, w = Math.round(h * a); return { label: r, pick: () => this.mod(x => Object.assign({}, x, { ratio: r })), sty: s.ratio === r ? 'background:#FAF9F5;color:#141413;box-shadow:0 1px 3px rgba(0,0,0,.15)' : 'background:transparent;color:#4A4944', glyph: 'width:' + w + 'px;height:' + h + 'px' }; });
+    o.sceneTabs = proj.scenes.map((x, i) => ({ name: x.name, active: i === st.si, idle: i !== st.si, w: Math.max(6, x.name.length), pick: () => i !== st.si && this.setState({ si: i, sel: -1, selSign: null, tm: step >= 4 ? 0 : -1, ev: { x: 600, y: 450, z: null }, playing: false }), ren: e => this.mod(q => Object.assign({}, q, { name: e.target.value })), canClose: proj.scenes.length > 1 && i === st.si, close: ev => { ev.stopPropagation(); const projects = this.state.projects.map(pp => pp.id !== st.pid ? pp : Object.assign({}, pp, { scenes: pp.scenes.filter((_, j) => j !== i) })); this.persist(projects); this.setState({ projects, si: 0, tm: -1 }); }, sty: i === st.si ? 'background:#FAF9F5;box-shadow:0 1px 3px rgba(0,0,0,.15);border:1px solid #D97757' : 'background:transparent;border:1px solid transparent' }));
+    o.addScene = this.addScene; o.dupScene = this.dupScene; o.goProjects = this.goProjects; o.dlProject = () => this.dl(proj); o.toExport = () => this.setStep(5); o.sceneCount = proj.scenes.length;
+    o.pickFile = () => this._rf && this._rf.click();
+
+    /* groups */
+    const G = [];
+    if (step === 1) {
+      G.push({ title: 'How to edit', items: [{ isInfo: true, label: 'Use the toolbar on the map. Draw: click to add points. Move: drag points; drag the small circles on the line to insert; right-click or Delete removes. Pan: hold the mouse wheel button and drag. Scroll to zoom.' }] });
+      G.push({ title: 'Curve', items: [{ isToggle: true, label: 'Smooth spline through points', toggle: () => this.mod(x => Object.assign({}, x, { smooth: x.smooth === false })), sty: s.smooth !== false ? 'background:#D97757' : 'background:#BDB9A8', knob: s.smooth !== false ? 'left:16px' : 'left:2px' }] });
+    }
+    if (step === 2) {
+      G.push({ title: 'Map', items: [
+        { isCards: true, label: 'Theme', opts: this.THEMES.map(t => ({ label: t.name, glyph: '', bg: 'background:linear-gradient(115deg,' + t.sea + ' 0 30%,' + t.land + ' 30%)', pick: () => this.setV('look', 'theme', t.id), sty: look.theme === t.id ? 'border:1.5px solid #D97757;background:#FAF9F5' : 'border:1.5px solid transparent' })) },
+        this.seg('Place names', 'look', 'labels', [['off', 'Off'], ['cities', 'Cities'], ['all', 'All']]),
+        this.tgl('Region shading', 'look', 'regions'), this.tgl('Streets & roads', 'look', 'roads'), this.tgl('3D terrain & relief', 'look', 'terrain'),
+        this.sld('Relief strength', 'look', 'hill', 0, 100, 5, v => v + '%')] });
+      G.push({ title: 'Route line', items: [
+        { isSwatch: true, label: 'Colour', opts: ['#D97757', '#141413', '#FAF9F5', '#6A9BCC', '#788C5D', '#C46686', '#E8B931'].map(c => ({ pick: () => this.setV('look', 'color', c), sty: 'background:' + c + ';' + (col === c ? 'border:2px solid #141413;box-shadow:0 0 0 2px #F2F0E8 inset' : 'border:1px solid #BDB9A8') })) },
+        this.sld('Thickness', 'look', 'width', 2, 18, 1, v => v + ' px'),
+        this.seg('Style', 'look', 'style', [['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted']]),
+        this.tgl('Outline (solid only)', 'look', 'casing'), this.tgl('Glow', 'look', 'glow'), this.tgl('Show full route ahead', 'look', 'ghost')] });
+      G.push({ title: 'Markers', items: [
+        { isCards: true, label: 'Symbol at the tip', opts: this.TIPS.map(t => ({ label: t[1], glyph: { pulse: '◉', dot: '●', arrow: '▲', pin: '◎', diamond: '◆', plane: '✈\uFE0E' }[t[0]], bg: 'background:#E4E0D0;color:#B4532F;font-size:16px', pick: () => this.setV('look', 'tip', t[0]), sty: look.tip === t[0] ? 'border:1.5px solid #D97757;background:#FAF9F5' : 'border:1.5px solid transparent' })) },
+        this.sld('Symbol size', 'look', 'tipSize', 0.5, 2.5, 0.1, v => '×' + v.toFixed(1)), this.tgl('Initial dot', 'look', 'startDot'), this.tgl('End marker', 'look', 'endDot')] });
+    }
+    const sg = s.signs.find(g => g.id === st.selSign);
+    if (step === 3) {
+      if (sg) G.push({ title: 'Selected sign', items: [
+        this.txt('Title', sg.title, v => this.patchSign(sg.id, { title: v })), this.txt('Subtitle', sg.sub, v => this.patchSign(sg.id, { sub: v })),
+        this.segF('Design', sg.style, this.SIGNS.map(x => [x[0], x[1], () => this.patchSign(sg.id, { style: x[0] })])),
+        this.segF('When the line reaches it', sg.trigger, [['reach', 'Appear', () => this.patchSign(sg.id, { trigger: 'reach' })], ['pause', 'Pause line', () => this.patchSign(sg.id, { trigger: 'pause' })], ['always', 'Always on', () => this.patchSign(sg.id, { trigger: 'always' })]])]
+        .concat(sg.trigger === 'pause' ? [{ isSlider: true, label: 'Pause for', v: sg.pause, min: 0.5, max: 8, step: 0.5, disp: sg.pause + ' s', set: e => this.patchSign(sg.id, { pause: parseFloat(e.target.value) }) }] : [])
+        .concat([{ isSlider: true, label: 'Size', v: sg.size, min: 0.5, max: 2, step: 0.1, disp: '×' + sg.size.toFixed(1), set: e => this.patchSign(sg.id, { size: parseFloat(e.target.value) }) }, { isBtn: true, label: 'Delete sign', act: () => this.delSign(sg.id), sty: 'border:1px solid #D0CCBC;background:#FAF9F5;color:#A8482A' }]) });
+      else G.push({ title: 'Selected sign', items: [{ isInfo: true, label: 'Pick a sign on the map or in the list to edit its text, design and timing. Drag it anywhere — on the route or off it.' }] });
+    }
+    if (step === 4) {
+      G.push({ title: 'Movement', items: [
+        this.seg('Camera mode', 'cam', 'mode', [['follow', 'Follow line'], ['pan', 'Pan A→B'], ['overview', 'Overview']]),
+        this.seg('Orientation', 'cam', 'orient', [['north', 'North up'], ['heading', 'Heading up']]),
+        this.sld('Zoom', 'cam', 'zoom', 0.5, 4.5, 0.1, v => '×' + v.toFixed(1)), this.sld('Look-ahead', 'cam', 'ahead', 0, 40, 1, v => v + '%'),
+        this.sld('Rotation smoothing', 'cam', 'smooth', 0, 100, 5, v => v + '%'), this.sld('Tilt (3D)', 'cam', 'tilt', 0, 60, 1, v => v + '°')] });
+      G.push({ title: 'Opening & closing', items: [this.tgl('Start wide, then zoom in', 'cam', 'intro'), this.tgl('Pull back to overview at the end', 'cam', 'outro')] });
+    }
+    if (step === 5) {
+      G.push({ title: 'Motion', items: [this.sld('Speed', 'exp', 'speed', 0.4, 4, 0.1, v => '×' + v.toFixed(1)), this.sld('Smoothness (ease in / out)', 'exp', 'ease', 0, 100, 5, v => v + '%'), this.sld('Hold before start', 'exp', 'pre', 0, 5, 0.5, v => v + ' s'), this.sld('Hold after end', 'exp', 'post', 0, 8, 0.5, v => v + ' s')] });
+      G.push({ title: 'Output', items: [this.seg('Resolution', 'exp', 'res', [['720p', '720p'], ['1080p', '1080p'], ['1440p', '1440p'], ['4K', '4K']]), this.seg('Frame rate', 'exp', 'fps', [[24, '24'], [30, '30'], [60, '60']]), this.seg('Format', 'exp', 'fmt', [['mp4', 'MP4'], ['webm', 'WebM'], ['gif', 'GIF']])] });
+    }
+    o.groups = G;
+    const dm = this.dims(s), mb = (dm[0] * dm[1] * ex.fps / (1920 * 1080 * 30)) * 8 * T / 8;
+    o.summary = [{ k: 'DURATION', v: this.fmt(T).replace(/^00:/, '') + ' s' }, { k: 'OUTPUT', v: dm[0] + '×' + dm[1] }, { k: 'FRAMES', v: Math.ceil(T * ex.fps) + '' }, { k: 'EST. SIZE', v: (ex.fmt === 'gif' ? mb * 3 : mb).toFixed(1) + ' MB' }];
+    o.expOne = () => this.startExport(false); o.expAll = () => this.startExport(true);
+
+    /* sidebar lists */
+    // NOTE: a GPX / dense JSON import can yield up to ~80 points (see parseRoute); above BIG_ROUTE the sidebar list is hidden and only the count shows.
+    o.bigRoute = s.points.length > 40; if (o.bigRoute) o.pointRows = [];
+    o.toolBtns = (step === 1 ? [
+      mkB('Draw points (click the map)', 'M3 16L8 9L12 12L17 4', () => this.setState({ tool: 'draw' }), st.tool === 'draw'),
+      mkB('Move / insert points', 'M5 3L5 16L8.5 12.5L11 17L13 16L10.5 11.5L15 11Z', () => this.setState({ tool: 'edit' }), st.tool === 'edit'),
+      mkB('Pan — or hold the mouse wheel button', 'M10 2V18M2 10H18M7 5L10 2L13 5M7 15L10 18L13 15M5 7L2 10L5 13M15 7L18 10L15 13', () => this.setState({ tool: 'pan' }), st.tool === 'pan'),
+      mkB('Undo last point', 'M6 8H13A4 4 0 0113 16H8M6 8L9 5M6 8L9 11', () => { if (s.points.length) this.delPoint(s.points.length - 1); }, false, true, !s.points.length),
+      mkB('Delete selected point', 'M4 6H16M8 6V4H12V6M6 6L7 17H13L14 6', () => st.sel >= 0 && this.delPoint(st.sel), false, false, st.sel < 0)
+    ] : [mkB('Pan — or hold the mouse wheel button', 'M10 2V18M2 10H18M7 5L10 2L13 5M7 15L10 18L13 15M5 7L2 10L5 13M15 7L18 10L15 13', () => this.setState({ tool: 'pan' }), st.tool === 'pan')]).concat([
+      mkB('Zoom in', 'M10 4V16M4 10H16', this.zoomIn, false, true), mkB('Zoom out', 'M4 10H16', this.zoomOut), mkB('Fit to route', 'M3 7V3H7M13 3H17V7M17 13V17H13M7 17H3V13', this.zoomFit)]);
+    o.pointCount = s.points.length; o.clearRoute = () => { this.mod(x => Object.assign({}, x, { points: [] })); this.setState({ sel: -1, tm: -1 }); };
+    o.pointRows = s.points.map((q, i) => ({ n: i + 1, name: q.name || 'Point ' + (i + 1), meta: q.date || Math.round(m.C[m.idx[i]] / m.L * 100) + '%', pick: () => this.setState({ sel: i }), del: ev => { ev.stopPropagation(); this.delPoint(i); }, sty: st.sel === i ? 'background:#FAF9F5;box-shadow:0 0 0 1px #D97757 inset' : '', dot: st.sel === i ? 'background:#D97757;color:#141413' : 'background:#E4E0D0;color:#141413' }));
+    const chips = { postcard: 'background:#FFFDF8;border:1px solid #BDB9A8;border-top:4px solid #D97757;border-radius:2px', post: 'background:#7A5238;clip-path:polygon(0 0,80% 0,100% 50%,80% 100%,0 100%)', ticket: 'background:#D97757;border-radius:4px', tag: 'background:#141413;border-radius:99px' };
+    o.signTypes = this.SIGNS.map(x => ({ label: x[1], chip: chips[x[0]], add: () => this.addSign(x[0]) }));
+    o.signCount = s.signs.length;
+    o.signRows = s.signs.map(g => ({ name: g.title, meta: { reach: 'appears', pause: 'pause ' + g.pause + 's', always: 'always' }[g.trigger], pick: () => this.setState({ selSign: g.id }), sty: st.selSign === g.id ? 'background:#FAF9F5;box-shadow:0 0 0 1px #D97757 inset' : '' }));
+    o.kfCount = cam.kfs.length;
+    o.addKf = () => this.mod(x => Object.assign({}, x, { cam: Object.assign({}, x.cam, { kfs: x.cam.kfs.concat([{ id: this.rid(), p, z: Math.round(z * 10) / 10 }]) }) }));
+    o.kfRows = [...cam.kfs].sort((a, b) => a.p - b.p).map(k => ({ time: this.fmt(m.timeAtP(k.p)), z: k.z, disp: '×' + k.z.toFixed(1), set: e => this.mod(x => Object.assign({}, x, { cam: Object.assign({}, x.cam, { kfs: x.cam.kfs.map(q => q.id === k.id ? Object.assign({}, q, { z: parseFloat(e.target.value) }) : q) }) })), del: () => this.mod(x => Object.assign({}, x, { cam: Object.assign({}, x.cam, { kfs: x.cam.kfs.filter(q => q.id !== k.id) }) })) }));
+
+    /* stage */
+    o.look = look; o.thLand = th.land; o.thSea = th.sea; o.thInk = th.ink; o.thHalo = th.halo; o.lk = lk;
+    o.cursor = step === 1 && st.tool === 'draw' ? 'crosshair' : step < 4 ? (step === 1 && st.tool === 'edit' ? 'default' : 'grab') : 'default';
+    o.layerStyle = 'transform:translate(' + sw / 2 + 'px,' + sh / 2 + 'px) rotateX(' + tilt + 'deg) rotate(' + (-rot) + 'deg) scale(' + z + ') translate(' + (-vx) + 'px,' + (-vy) + 'px);';
+    o.gridStyle = 'background-image:repeating-linear-gradient(0deg,' + th.grid + ' 0 1.5px,transparent 1.5px 90px),repeating-linear-gradient(90deg,' + th.grid + ' 0 1.5px,transparent 1.5px 90px);';
+    const hue = [['oklch(.8 .08 250 / .28)', 'NORTE', 0, -3000, 3300], ['oklch(.82 .09 150 / .28)', 'CENTRO', 0, 300, 330], ['oklch(.84 .09 70 / .3)', 'LISBOA', 0, 630, 3000]];
+    o.regions = hue.map(r => ({ name: r[1], box: 'top:' + r[3] + 'px;height:' + r[4] + 'px;background:' + r[0] + ';border-top:' + (r[3] > -3000 ? '2px dashed ' + th.ink + '55' : '0'), lab: 'left:1040px;top:' + (r[3] > -3000 ? r[3] + 24 : 40) + 'px;transform:scale(' + lk + ');color:' + th.ink + ';opacity:.7' }));
+    o.hills = [[900, 300, 420], [1020, 620, 320], [760, 470, 220], [1080, 120, 260]].map(h => ({ sty: 'left:' + (h[0] - h[2]) + 'px;top:' + (h[1] - h[2] * 0.7) + 'px;width:' + h[2] * 2 + 'px;height:' + h[2] * 1.4 + 'px;border-radius:50%;opacity:' + look.hill / 100 + ';background:repeating-radial-gradient(closest-side,' + (th.ink) + '33 0 1.5px,transparent 1.5px 16px);-webkit-mask-image:radial-gradient(closest-side,#000 40%,transparent);mask-image:radial-gradient(closest-side,#000 40%,transparent);box-shadow:inset 0 0 0 0 transparent' }));
+    o.showLabels = look.labels !== 'off';
+    o.cityLabels = look.labels === 'off' ? [] : this.CITIES.filter(c => look.labels === 'all' || c.big).map(c => ({ n: c.n, sty: 'left:' + c.x + 'px;top:' + c.y + 'px;transform:scale(' + lk + ') translate(-3px,-50%)', font: "font:" + (c.big ? 600 : 500) + " " + (c.big ? 15 : 12.5) + "px 'Instrument Sans',sans-serif" }));
+
+    const lw = look.width * lk, dash = look.style === 'dashed' ? 'stroke-dasharray:' + lw * 2.4 + ' ' + lw * 2 + ';' : look.style === 'dotted' ? 'stroke-dasharray:0.01 ' + lw * 2.2 + ';' : '';
+    const base = 'fill:none;stroke-linecap:round;stroke-linejoin:round;';
+    const hasLine = s.points.length > 1; o.fullPts = m.full; o.trailPts = m.trail(p);
+    o.trailStyle = base + 'stroke:' + col + ';stroke-width:' + lw + ';' + dash + (look.glow ? 'filter:drop-shadow(0 0 ' + 7 * lk + 'px ' + col + ');' : '');
+    o.casingStyle = base + 'stroke:#FAF9F5;stroke-opacity:.92;stroke-width:' + (lw + 5 * lk) + ';'; o.hasCasing = hasLine && look.casing && look.style === 'solid';
+    o.ghostStyle = base + 'stroke:' + col + ';stroke-opacity:.38;stroke-width:' + lw * 0.55 + ';stroke-dasharray:' + 5 * lk + ' ' + 7 * lk + ';';
+    const P0 = s.points[0] || { x: 0, y: 0 }, PN = s.points[s.points.length - 1] || P0;
+    o.startX = P0.x; o.startY = P0.y; o.endX = PN.x; o.endY = PN.y; o.dotR = 8 * lk * look.tipSize;
+    o.startStyle = 'fill:' + col + ';stroke:#FAF9F5;stroke-width:' + 3 * lk; o.endStyle = 'fill:#FAF9F5;stroke:' + col + ';stroke-width:' + 4 * lk;
+    o.startDot = look.startDot && s.points.length > 0; o.endMark = look.endDot && s.points.length > 1; o.look = Object.assign({}, look, { startDot: o.startDot });
+    o.lineColor = col; const tp = m.pos(p); o.hasTip = s.points.length > 0; o.tipX = tp.x; o.tipY = tp.y; o.tipH = s.points.length > 1 ? m.heading(p, 0.02) : 0; o.tipS = lk * look.tipSize;
+    o.tipIs = {}; this.TIPS.forEach(t => o.tipIs[t[0]] = look.tip === t[0]);
+
+    o.mids = []; o.handles = [];
+    if (step === 1) {
+      for (let i = 0; i < s.points.length - 1; i++) { const q = s.smooth !== false ? m.S[m.idx[i] + (m.N >> 1)] : { x: (s.points[i].x + s.points[i + 1].x) / 2, y: (s.points[i].y + s.points[i + 1].y) / 2 }; if (q) o.mids.push({ sty: 'left:' + q.x + 'px;top:' + q.y + 'px;transform:scale(' + lk + ') translate(-50%,-50%)', down: ev => { ev.stopPropagation(); this.mod(x => Object.assign({}, x, { points: x.points.slice(0, i + 1).concat([{ x: q.x, y: q.y }], x.points.slice(i + 1)) })); this.setState({ sel: i + 1 }); this._drag = { type: 'pt', i: i + 1 }; } }); }
+      o.handles = s.points.map((q, i) => ({ n: i + 1, sty: 'left:' + q.x + 'px;top:' + q.y + 'px;transform:scale(' + lk + ') translate(-50%,-50%);' + (st.sel === i ? 'background:#D97757;color:#141413;border:2px solid #141413' : 'background:#FAF9F5;color:#141413;border:2px solid #141413'), down: ev => { ev.stopPropagation(); if (ev.button !== 0) return; this.setState({ sel: i }); this._drag = { type: 'pt', i }; }, ctx: ev => { ev.preventDefault(); ev.stopPropagation(); this.delPoint(i); } }));
+    }
+    o.leaders = []; o.signsMap = [];
+    s.signs.forEach(g => {
+      const nr = m.nearest(g.x, g.y), tA = m.timeAtP(nr.p), rv = g.trigger === 'always' ? 1 : this.ss((tm - tA + 0.001) / 0.5), far = nr.d > 60 * lk;
+      const edit = step === 3, vis = edit ? Math.max(rv, 0.55) : rv, sel = edit && st.selSign === g.id;
+      if (far && vis > 0 && s.points.length) o.leaders.push({ x1: nr.x, y1: nr.y, x2: g.x, y2: g.y, sty: 'stroke:' + (th.ink) + ';stroke-width:' + 1.6 * lk + ';stroke-dasharray:' + 5 * lk + ' ' + 4 * lk + ';opacity:' + vis * 0.8 });
+      o.signsMap.push({ title: g.title, sub: g.sub, isPostcard: g.style === 'postcard', isPost: g.style === 'post', isTicket: g.style === 'ticket', isTag: g.style === 'tag', cur: edit ? 'move' : 'default',
+        sty: 'left:' + g.x + 'px;top:' + g.y + 'px;transform:rotate(' + rot + 'deg) scale(' + (g.size * lk * (0.85 + 0.15 * (edit ? 1 : rv))) + ') translate(-50%,-50%);opacity:' + vis + ';pointer-events:' + (edit ? 'auto' : 'none') + ';' + (sel ? 'outline:2px solid #6A9BCC;outline-offset:6px;' : ''),
+        down: ev => { if (!edit) return; ev.stopPropagation(); const w = this.toWorld(ev); this.setState({ selSign: g.id }); this._drag = { type: 'sign', id: g.id, ox: w.x - g.x, oy: w.y - g.y }; } });
+    });
+
+    o.clipStyle = 'left:' + (sw - cw) / 2 + 'px;top:' + (sh - ch) / 2 + 'px;width:' + cw + 'px;height:' + ch + 'px';
+    o.clipLabel = s.ratio + ' · ' + dm[0] + '×' + dm[1] + ' · ' + ex.fps + ' fps' + (step >= 4 ? ' · camera view' : ' · outside is cropped');
+    o.emptyHint = step === 1 && !s.points.length; o.canEditView = step < 4;
+    o.stageHint = step < 4 ? 'Placeholder basemap — live map tiles render here' : 'Camera preview · ' + { follow: 'following the line', pan: 'panning start → end', overview: 'fixed overview' }[cam.mode];
+    o.toast = st.toast; o.stageRef = this.stageRef; o.stageDown = this.stageDown; o.wheel = this.wheel; o.zoomIn = this.zoomIn; o.zoomOut = this.zoomOut; o.zoomFit = this.zoomFit;
+
+    /* timeline */
+    o.play = this.play; o.rewind = this.rewind; o.tlRef = this.tlRef; o.tlDown = this.tlDown;
+    o.playLabel = st.playing ? 'Pause' : 'Play'; o.playGlyph = st.playing ? 'display:block;width:10px;height:12px;border-left:3px solid #FAF9F5;border-right:3px solid #FAF9F5' : 'display:block;border-left:10px solid #FAF9F5;border-top:6px solid transparent;border-bottom:6px solid transparent';
+    o.timeNow = this.fmt(tm); o.timeTotal = this.fmt(T); o.phLeft = 'calc(108px + (100% - 108px) * ' + (tm / T) + ')';
+    const stp = T <= 12 ? 1 : T <= 30 ? 2 : T <= 70 ? 5 : 10; o.ticks = []; for (let t = 0; t <= T; t += stp) o.ticks.push({ label: t + 's', sty: 'left:' + t / T * 100 + '%' });
+    const segs = [], push = (a, b, k, l) => { if (b - a > 1e-6) segs.push({ l: l || '', sty: 'left:' + a / T * 100 + '%;width:' + (b - a) / T * 100 + '%;' + { pre: 'background:repeating-linear-gradient(135deg,#E3E0D3 0 4px,#EEECE2 4px 8px);color:#6B6A64', tr: 'background:#D97757;color:#141413;box-shadow:0 0 0 1px #FAF9F5 inset', pa: 'background:#141413;color:#FAF9F5', post: 'background:repeating-linear-gradient(135deg,#E3E0D3 0 4px,#EEECE2 4px 8px);color:#6B6A64' }[k] }); };
+    let cur = ex.pre, acc = 0, first = true; push(0, ex.pre, 'pre', ex.pre >= 1 ? 'hold' : '');
+    m.pauses.forEach(q => { const a = ex.pre + m.inv(q.p) * m.travel + acc; push(cur, a, 'tr', first ? 'Route · ×' + ex.speed.toFixed(1) : ''); first = false; push(a, a + q.dur, 'pa', q.dur + 's'); acc += q.dur; cur = a + q.dur; });
+    push(cur, ex.pre + m.travel + acc, 'tr', first ? 'Route · ×' + ex.speed.toFixed(1) : ''); push(ex.pre + m.travel + acc, T, 'post', ex.post >= 1 ? 'hold' : '');
+    o.lineSegs = segs;
+    o.camBar = 'left:' + ex.pre / T * 100 + '%;width:' + (T - ex.pre - ex.post) / T * 100 + '%'; o.camLabel = { follow: 'Follow line', pan: 'Pan A → B', overview: 'Overview' }[cam.mode] + ' · ' + (cam.orient === 'heading' ? 'heading up' : 'north up') + ' · ×' + cam.zoom.toFixed(1);
+    o.kfDots = cam.kfs.map(k => ({ sty: 'left:' + m.timeAtP(k.p) / T * 100 + '%' }));
+    o.signPills = s.signs.map(g => { const a = m.timeAtP(m.nearest(g.x, g.y).p), d = g.trigger === 'pause' ? g.pause : 0; return { label: g.title, sty: 'left:' + a / T * 100 + '%;' + (d ? 'width:' + d / T * 100 + '%;min-width:60px' : 'max-width:110px') }; });
+
+    /* export modal */
+    const xe = st.exp; o.expOpen = !!xe;
+    if (xe) { const done = xe.prog >= 1; o.expTitle = done ? 'Export complete' : 'Rendering ' + (xe.all ? xe.n + ' scenes…' : '1 scene…'); o.expBtn = done ? 'Done' : 'Cancel'; o.closeExp = () => { clearInterval(this._xi); this.setState({ exp: null }); };
+      const list = xe.all ? proj.scenes : [s]; o.expRows = list.map((x, j) => { const pr = Math.max(0, Math.min(1, xe.prog * list.length - j)), d = this.dims(x); return { name: x.name, meta: pr >= 1 ? 'done · ' + x.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.' + x.exp.fmt : d[0] + '×' + d[1] + ' · ' + x.exp.fps + ' fps · ' + Math.round(pr * 100) + '%', bar: 'width:' + pr * 100 + '%' }; }); }
+    else { o.expRows = []; o.closeExp = () => { }; }
+    return o;
+  }
+}
+</script>
+</body>
+</html>

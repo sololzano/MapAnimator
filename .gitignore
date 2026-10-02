@@ -28,3 +28,7 @@ __pycache__/
 eval/results/
 *.gpx
 data/
+
+# Design stuff
+*.zip
+
