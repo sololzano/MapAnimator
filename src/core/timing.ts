@@ -10,12 +10,13 @@ import type { RouteModel } from './route';
  */
 export function autoTravel(route: RouteModel, nPoints: number): number {
   if (route.S.length < 2 || !route.bounds) return 2;
-  const km = Math.max(0.05, route.M[route.M.length - 1] / 1000);
+  // Hidden legs don't count as distance; each costs a short hop instead.
+  const km = Math.max(0.05, route.visibleMetres / 1000);
   const b = route.bounds;
   const diag = Math.hypot(b.x1 - b.x0, b.y1 - b.y0) || route.L;
   const winding = clamp(Math.sqrt(route.L / diag), 1, 1.8);
   const perPoint = 0.2 * Math.min(Math.max(0, nPoints - 2), 75);
-  return clamp(6 * km ** 0.2 * winding + perPoint, 3, 120);
+  return clamp(6 * km ** 0.2 * winding + perPoint + 0.8 * route.hiddenLegs, 3, 120);
 }
 /** Seconds a sign takes to fade/pop in. */
 export const SIGN_IN = 0.5;
@@ -62,6 +63,8 @@ export function buildTimeMap(scene: Scene, route: RouteModel): TimeMap {
     .filter((g) => g.trigger === 'pause')
     .map((g) => ({ id: g.id, p: signP.get(g.id)!, dur: Math.max(0, g.pause) }))
     .sort((a, b) => a.p - b.p);
+  // Easing and pauses live in "time share" w; hidden legs make w ≠ p.
+  const W = (p: number) => route.wFromP(p);
   const held = pauses.reduce((a, q) => a + q.dur, 0);
   const T = e.pre + travel + held + e.post;
 
@@ -70,17 +73,17 @@ export function buildTimeMap(scene: Scene, route: RouteModel): TimeMap {
     if (tau <= 0) return 0;
     let acc = 0;
     for (const q of pauses) {
-      const st = inv(q.p) * travel + acc;
+      const st = inv(W(q.p)) * travel + acc;
       if (tau < st) break;
       if (tau < st + q.dur) return q.p;
       acc += q.dur;
     }
-    return Math.min(1, ease(Math.min(1, (tau - acc) / travel)));
+    return Math.min(1, route.pFromW(ease(Math.min(1, (tau - acc) / travel))));
   };
   const timeAtP = (p: number) => {
     let acc = 0;
     for (const q of pauses) if (q.p < p - 1e-9) acc += q.dur;
-    return e.pre + inv(p) * travel + acc;
+    return e.pre + inv(W(p)) * travel + acc;
   };
   const tm: TimeMap = { T, pre: e.pre, post: e.post, travel, auto, pauses, progressAt, timeAtP, signP };
   cache.set(scene, tm);

@@ -1,10 +1,11 @@
 // Canvas2D layer drawn on top of the map: route line, markers, signs and
 // credits. The same code draws the editor preview and every exported frame,
 // so what you see is what you export.
-import { signPointIndex, type Scene } from '../core/model';
+import { legMode, signPointIndex, type Scene } from '../core/model';
 import type { FrameState, SceneRuntime } from '../core/runtime';
 import { mapTheme } from '../map/themes';
 import { SIGN_FONT, drawSignBody } from './signs';
+import { drawModeBadge, drawMotorcycle, type Pose } from './transport';
 
 export type Project = (lng: number, lat: number) => { x: number; y: number };
 
@@ -24,6 +25,8 @@ export interface OverlayInput {
   /** Editor-only: keep signs at least this visible so they can be edited. */
   minSignAlpha?: number;
   selectedSign?: string | null;
+  /** Editor-only: draw hidden legs as faint dashes. */
+  showHidden?: boolean;
 }
 
 export interface SignHit { id: string; rect: Rect; anchor: { x: number; y: number } }
@@ -42,14 +45,29 @@ export function drawOverlay(o: OverlayInput): SignHit[] {
   const head = (() => { const ll = route.posLL(p); return project(ll[0], ll[1]); })();
   const w = look.width * k;
 
+  /** Path over the visible runs only (hidden legs leave gaps), up to sample `upto` (+ the head). */
   const tracePath = (upto: number, withHead: boolean) => {
     ctx.beginPath();
-    for (let i = 0; i <= upto && i < n; i++) {
-      const x = pts[i * 2], y = pts[i * 2 + 1];
-      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    for (const [a, b] of route.runs) {
+      if (a > upto) break;
+      let started = false;
+      for (let i = a; i <= Math.min(b, upto) && i < n; i++) {
+        const x = pts[i * 2], y = pts[i * 2 + 1];
+        if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+        if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+      }
+      if (withHead && started && upto < b) ctx.lineTo(head.x, head.y);
     }
-    if (withHead) ctx.lineTo(head.x, head.y);
+  };
+  /** Editor only: hidden legs as faint dashes so they can still be found and edited. */
+  const traceHidden = () => {
+    ctx.beginPath();
+    for (let i = 1; i < scene.points.length; i++) {
+      if (!scene.points[i].hidden) continue;
+      for (let j = route.idx[i - 1]; j <= route.idx[i]; j++) {
+        if (j === route.idx[i - 1]) ctx.moveTo(pts[j * 2], pts[j * 2 + 1]); else ctx.lineTo(pts[j * 2], pts[j * 2 + 1]);
+      }
+    }
   };
 
   ctx.save();
@@ -57,6 +75,11 @@ export function drawOverlay(o: OverlayInput): SignHit[] {
   ctx.lineJoin = 'round';
 
   if (n > 1) {
+    if (o.showHidden && route.hiddenLegs) {
+      traceHidden();
+      ctx.strokeStyle = look.color; ctx.globalAlpha = 0.5; ctx.lineWidth = Math.max(1.5, w * 0.3);
+      ctx.setLineDash([2, 6]); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+    }
     if (look.ghost && p < 1) {
       tracePath(n - 1, false);
       ctx.strokeStyle = look.color; ctx.globalAlpha = 0.38; ctx.lineWidth = w * 0.55;
@@ -133,7 +156,8 @@ export function drawOverlay(o: OverlayInput): SignHit[] {
   }
   ctx.globalAlpha = 1;
 
-  if (n > 0) drawTip(ctx, scene, o.frame.t, head, screenHeading(route, p, project), k, ring);
+  // The tip disappears while crossing a hidden leg.
+  if (n > 0 && !route.hiddenAt(p)) drawTip(ctx, scene, rt, frame, head, project, k, ring);
 
   if (o.attribution) {
     const fr = o.frameRect, fs = Math.max(8, 9.5 * k);
@@ -158,8 +182,36 @@ function screenHeading(route: SceneRuntime['route'], p: number, project: Project
   return (Math.atan2(B.x - A.x, -(B.y - A.y)) * 180) / Math.PI;
 }
 
-function drawTip(ctx: CanvasRenderingContext2D, scene: Scene, t: number, at: { x: number; y: number }, heading: number, k: number, ring: string) {
-  const look = scene.look, col = look.color, s = k * look.tipSize;
+/**
+ * Which way a side-view icon faces and how much it tilts with the climb. Deterministic in p,
+ * and stable: when travel is near-vertical on screen the facing comes from the whole leg
+ * (then the whole route) instead of local wobble, so the icon never flickers left/right.
+ */
+function sidePose(scene: Scene, route: SceneRuntime['route'], p: number, project: Project): Pose {
+  const dir = (a: [number, number], b: [number, number]) => {
+    const A = project(a[0], a[1]), B = project(b[0], b[1]);
+    return { dx: B.x - A.x, dy: B.y - A.y };
+  };
+  const horizontal = (d: { dx: number; dy: number }) => Math.abs(d.dx) > 0.35 * Math.abs(d.dy) && Math.abs(d.dx) > 0.5;
+  const local = dir(route.posLL(Math.max(0, p - 0.015)), route.posLL(Math.min(1, p + 0.015)));
+  const climb = Math.atan2(-local.dy, Math.abs(local.dx) + 1e-9);
+  const tilt = -Math.max(-0.2, Math.min(0.2, climb * 0.3));
+  const wide = dir(route.posLL(Math.max(0, p - 0.05)), route.posLL(Math.min(1, p + 0.05)));
+  for (const d of [local, wide]) if (horizontal(d)) return { facingLeft: d.dx < 0, tilt };
+  const i = route.legAt(p), pts = scene.points;
+  if (i > 0 && pts[i]) {
+    const leg = dir([pts[i - 1].lng, pts[i - 1].lat], [pts[i].lng, pts[i].lat]);
+    if (Math.abs(leg.dx) > 0.5) return { facingLeft: leg.dx < 0, tilt };
+  }
+  const all = dir(route.ll[0], route.ll[route.ll.length - 1]);
+  return { facingLeft: all.dx < -0.5, tilt };
+}
+
+function drawTip(ctx: CanvasRenderingContext2D, scene: Scene, rt: SceneRuntime, frame: FrameState, at: { x: number; y: number }, project: Project, k: number, ring: string) {
+  const look = scene.look, col = look.color, s = k * look.tipSize, t = frame.t, p = frame.p, route = rt.route;
+  const heading = screenHeading(route, p, project);
+  const mode = look.tip === 'mode' ? legMode(scene, route.legAt(p)) : null;
+  const kind = look.tip === 'mode' ? (mode === 'moto' ? 'moto' : mode === 'plane' ? 'plane' : 'badge') : look.tip;
   ctx.save();
   ctx.translate(at.x, at.y);
   ctx.lineJoin = 'round';
@@ -169,7 +221,19 @@ function drawTip(ctx: CanvasRenderingContext2D, scene: Scene, t: number, at: { x
     for (let i = 0; i < xy.length; i += 2) { const x = xy[i] * s, y = xy[i + 1] * s; if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }
     ctx.closePath();
   };
-  switch (look.tip) {
+  if (kind === 'moto') {
+    // Wheels turn with distance drawn (so they stop during pauses); a tiny bob sells the ride.
+    const wheel = p * rt.tm.travel * Math.PI * 5;
+    drawMotorcycle(ctx, col, ring, s * 1.25, sidePose(scene, route, p, project), wheel, Math.sin(wheel * 1.3) * 0.35);
+    ctx.restore();
+    return;
+  }
+  if (kind === 'badge') {
+    drawModeBadge(ctx, mode ?? 'other', col, ring, s, sidePose(scene, route, p, project));
+    ctx.restore();
+    return;
+  }
+  switch (kind) {
     case 'pulse': {
       const ph = (t * 1.1) % 1;
       ctx.beginPath(); ctx.arc(0, 0, (11 + 12 * ph) * s, 0, Math.PI * 2);

@@ -92,6 +92,7 @@ export function Stage() {
     hits.current.signs = drawOverlay({
       ctx, project, scene: st.scene, rt: st.rt, frame: evaluate(st.scene, st.rt, t), scale: st.scale, frameRect: st.frame,
       attribution: st.attribution, minSignAlpha: st.step === 3 ? 0.55 : 0, selectedSign: st.step === 3 ? st.selSign : null,
+      showHidden: st.step <= 3,
     });
     if (st.step === 1) {
       hits.current.handles = drawHandles(ctx, st.scene, st.rt, project, st.sel, { mids: st.tool !== 'pan', numbers: st.showNumbers, colors: st.colors });

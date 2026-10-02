@@ -31,11 +31,11 @@ npm test
 | Step | What you do |
 |---|---|
 | Projects | Projects live in this browser (IndexedDB). Download one as a `.chilaquil` file to keep it, or open it later from file. |
-| 1 · Route | Click to draw, drag points, drag the small circles to insert, right-click/Delete to remove. Import GPX/KML or a Google Timeline JSON and pick the dates. |
+| 1 · Route | Click to draw, drag points, drag the small circles to insert, right-click/Delete to remove. Import GPX/KML or a Google Timeline JSON and pick the dates and travel modes. Set a travel mode per leg, or hide legs you don't want drawn. |
 | 2 · Look | Map theme (Latte, Frappé, Paper, Mono, Terrain, Satellite, Night, Blueprint), labels and language, visited-country shading, roads, 3D terrain, line and marker style. |
 | 3 · Signs | Postcard, signpost, ticket and tag signboards. They appear when the line reaches them, or pause the line for a few seconds. |
-| 4 · Camera | Follow the line, pan A→B, or overview; north-up or heading-up; zoom, look-ahead, smoothing, tilt, intro/outro and zoom keyframes. |
-| 5 · Export | Speed, easing and holds; 720p–4K, 24/30/60 fps; MP4 (H.264), WebM (VP9) or GIF. Export one scene or all of them. |
+| 4 · Camera | Follow the line or a static overview, framed right on the map (drag, scroll, right-drag). North-up or heading-up, zoom, look-ahead, smoothing, tilt, intro/outro and zoom keyframes. |
+| 5 · Export | 720p–4K, 24/30/60 fps; MP4 (H.264), WebM (VP9) or GIF. Export one scene or all of them. Pace, easing and holds live on the timeline bar. |
 
 Supported Google Timeline exports: the new on-device export (Android `Timeline.json` and
 iPhone), and the legacy Takeout `Records.json` / `Semantic Location History`. Files are
@@ -51,7 +51,7 @@ blocks every other host, so your routes, signs and projects cannot be sent anywh
 
 ## Credits and licences
 
-Code: MIT. Map data © OpenStreetMap contributors (ODbL), OpenMapTiles schema, served by
+Code: MIT. Transport badge icons from Tabler Icons (MIT). Map data © OpenStreetMap contributors (ODbL), OpenMapTiles schema, served by
 OpenFreeMap. Terrain: Mapzen Terrain Tiles on AWS. Satellite: Sentinel‑2 cloudless by EOX
 IT Services GmbH (contains modified Copernicus Sentinel data 2020, CC BY-NC-SA 4.0, so
 **non-commercial use only**). Country shapes: Natural Earth (public domain) via

@@ -6,6 +6,13 @@ export const SCHEMA_VERSION = 1;
 export type Ratio = '16:9' | '9:16' | '1:1' | '4:5';
 export const RATIOS: Ratio[] = ['16:9', '9:16', '1:1', '4:5'];
 
+export type TravelMode = 'car' | 'moto' | 'walk' | 'bike' | 'bus' | 'train' | 'plane' | 'boat' | 'other';
+
+export const TRAVEL_MODES: [TravelMode, string][] = [
+  ['car', 'Car'], ['moto', 'Motorcycle'], ['walk', 'Walking'], ['bike', 'Bike'], ['bus', 'Bus'], ['train', 'Train'],
+  ['plane', 'Plane'], ['boat', 'Boat'], ['other', 'Other'],
+];
+
 export interface RoutePoint {
   id: string;
   lng: number;
@@ -13,6 +20,10 @@ export interface RoutePoint {
   name?: string;
   /** Epoch milliseconds, when known (GPX / timeline imports). */
   time?: number;
+  /** Travel mode of the leg arriving at this point (defaults to the scene's travel mode). */
+  mode?: TravelMode;
+  /** The leg arriving at this point is hidden: not drawn, and crossed quickly. */
+  hidden?: boolean;
 }
 
 export type SignStyle = 'postcard' | 'post' | 'ticket' | 'tag';
@@ -39,7 +50,7 @@ export interface Sign {
 }
 
 export type MapThemeId = 'latte' | 'frappe' | 'paper' | 'mono' | 'terrain' | 'satellite' | 'night' | 'blueprint';
-export type TipKind = 'pulse' | 'dot' | 'arrow' | 'pin' | 'diamond' | 'plane';
+export type TipKind = 'pulse' | 'dot' | 'arrow' | 'pin' | 'diamond' | 'plane' | 'moto' | 'mode';
 
 export interface Look {
   theme: MapThemeId;
@@ -122,6 +133,8 @@ export interface Scene {
   name: string;
   ratio: Ratio;
   smooth: boolean;
+  /** Default travel mode for legs without their own. */
+  travel: TravelMode;
   points: RoutePoint[];
   signs: Sign[];
   look: Look;
@@ -162,7 +175,7 @@ export function defaultExport(): ExportSettings {
 
 export function makeScene(name: string, over: Partial<Scene> = {}): Scene {
   return {
-    id: rid('s'), name, ratio: '16:9', smooth: true, points: [], signs: [],
+    id: rid('s'), name, ratio: '16:9', smooth: true, travel: 'car', points: [], signs: [],
     look: defaultLook(), cam: defaultCamera(), exp: defaultExport(), ...over,
   };
 }
@@ -177,6 +190,11 @@ export function makeSign(pointId: string, over: Partial<Sign> = {}): Sign {
     id: rid('g'), pointId, dx: 110, dy: -70, title: 'New place', sub: 'Add a note',
     style: 'postcard', trigger: 'pause', pause: 2, size: 1, ...over,
   };
+}
+
+/** Travel mode of the leg arriving at point i. */
+export function legMode(s: Scene, i: number): TravelMode {
+  return s.points[i]?.mode ?? s.travel ?? 'car';
 }
 
 /** Effective speed multiplier of a scene. */
@@ -194,9 +212,11 @@ export function normalizeScene(s: Scene): Scene {
   const needCam = cam.mode === 'pan' || cam.view === undefined;
   const needExp = !exp.pace;
   const needSigns = s.signs.some((g) => !s.points.some((q) => q.id === g.pointId));
-  if (!needCam && !needExp && !needSigns) return s;
+  const needTravel = !s.travel;
+  if (!needCam && !needExp && !needSigns && !needTravel) return s;
   return {
     ...s,
+    travel: s.travel ?? 'car',
     cam: needCam ? { ...cam, mode: cam.mode === 'overview' ? 'overview' : 'follow', view: cam.view ?? null } : s.cam,
     exp: needExp ? { ...exp, pace: exp.speed === 1 ? 'normal' : 'custom' } : s.exp,
     signs: needSigns

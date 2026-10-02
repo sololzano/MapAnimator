@@ -42,6 +42,8 @@ describe('google timeline parsers (synthetic fixtures)', () => {
     expect(modeCategory('FLYING')).toBe('plane');
     expect(modeCategory('IN_FERRY')).toBe('boat');
     expect(modeCategory('CYCLING')).toBe('bike');
+    expect(modeCategory('MOTORCYCLING')).toBe('moto');
+    expect(modeCategory('on a motorcycle')).toBe('moto');
     expect(modeCategory('UNKNOWN_ACTIVITY_TYPE')).toBe('other');
   });
   it('untagged path points inherit the mode of the activity covering them', () => {
@@ -56,6 +58,8 @@ describe('google timeline parsers (synthetic fixtures)', () => {
     const all = filterTimeline(tl, '2025-10-03', '2025-10-04', 'clean');
     const noCar = filterTimeline(tl, '2025-10-03', '2025-10-04', 'clean', new Set(['train']));
     expect(noCar.pts.length).toBeLessThan(all.pts.length);
+    expect(noCar.pts.some((q) => q.gapBefore)).toBe(true);
+    expect(all.pts.some((q) => q.gapBefore)).toBe(false);
     expect(noCar.stops.length).toBe(all.stops.length);
     const d = modeDistances(tl, '2025-10-03', '2025-10-04', 'clean');
     expect(d.get('car')! / 1000).toBeGreaterThan(50);

@@ -7,6 +7,7 @@
 //  - Simple JSON:                       [ { lat, lon|lng, time|date, name } ]  (or { points: [...] })
 
 import { haversine } from '../core/geo';
+import { TRAVEL_MODES, type TravelMode } from '../core/model';
 
 export type SampleKind = 'visit' | 'path' | 'raw';
 
@@ -23,12 +24,7 @@ export interface Sample {
   mode?: TravelMode;
 }
 
-export type TravelMode = 'car' | 'walk' | 'bike' | 'bus' | 'train' | 'plane' | 'boat' | 'other';
-
-export const TRAVEL_MODES: [TravelMode, string][] = [
-  ['car', 'Car'], ['walk', 'Walking'], ['bike', 'Bike'], ['bus', 'Bus'], ['train', 'Train'],
-  ['plane', 'Plane'], ['boat', 'Boat'], ['other', 'Other / unknown'],
-];
+export { TRAVEL_MODES, type TravelMode };
 
 /** Google activity types (Android IN_PASSENGER_VEHICLE, iOS "in passenger vehicle", Takeout FLYING …) → mode. */
 export function modeCategory(raw: unknown): TravelMode {
@@ -38,9 +34,10 @@ export function modeCategory(raw: unknown): TravelMode {
   if (/train|subway|tram|rail|metro|underground|cable car|funicular/.test(t)) return 'train';
   if (/bus|coach/.test(t)) return 'bus';
   if (/ferry|boat|sail|kayak|row|surf/.test(t)) return 'boat';
+  if (/motor|moped|scooter/.test(t)) return 'moto';
   if (/cycl|bicycl|bike/.test(t)) return 'bike';
   if (/walk|foot|run|hik|jog/.test(t)) return 'walk';
-  if (/vehicle|car|taxi|driv|motor|scooter/.test(t)) return 'car';
+  if (/vehicle|car|taxi|driv/.test(t)) return 'car';
   return 'other';
 }
 
@@ -261,7 +258,7 @@ export interface Stop { lat: number; lng: number; t: number; day: string; name?:
 
 export interface FilteredRoute {
   /** Ordered route positions, with stops marked. */
-  pts: { lat: number; lng: number; t: number; day: string; stop: boolean; name?: string }[];
+  pts: { lat: number; lng: number; t: number; day: string; stop: boolean; name?: string; mode?: TravelMode; gapBefore?: boolean }[];
   stops: Stop[];
 }
 
@@ -290,17 +287,20 @@ export function modeDistances(tl: ParsedTimeline, from: string, to: string, deta
  * Consecutive visits to the same place collapse into one stop.
  */
 export function filterTimeline(tl: ParsedTimeline, from: string, to: string, detail: 'clean' | 'raw', modes?: Set<TravelMode>): FilteredRoute {
-  const sel = selectSamples(tl, from, to, detail).filter((s) => s.kind === 'visit' || !modes || modes.has(s.mode ?? 'other'));
   const pts: FilteredRoute['pts'] = [];
   const stops: Stop[] = [];
-  for (const s of sel) {
+  // Legs of an excluded mode are skipped; the next kept point starts after a gap (a hidden leg).
+  let gap = false;
+  for (const s of selectSamples(tl, from, to, detail)) {
+    if (s.kind !== 'visit' && modes && !modes.has(s.mode ?? 'other')) { if (pts.length) gap = true; continue; }
     const last = pts[pts.length - 1];
     // Drop exact duplicates and sub-metre jitter.
     if (last && Math.abs(last.lat - s.lat) < 1e-5 && Math.abs(last.lng - s.lng) < 1e-5) {
       if (s.kind === 'visit') { last.stop = true; last.name = last.name ?? s.name; }
       continue;
     }
-    pts.push({ lat: s.lat, lng: s.lng, t: s.t, day: s.day, stop: s.kind === 'visit', name: s.name });
+    pts.push({ lat: s.lat, lng: s.lng, t: s.t, day: s.day, stop: s.kind === 'visit', name: s.name, mode: s.mode, gapBefore: gap || undefined });
+    gap = false;
   }
   for (const p of pts) if (p.stop) stops.push({ lat: p.lat, lng: p.lng, t: p.t, day: p.day, name: p.name });
   return { pts, stops };

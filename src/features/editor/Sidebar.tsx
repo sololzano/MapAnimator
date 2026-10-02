@@ -1,4 +1,5 @@
-import { makeSign, outputSize, removePoint, rid, signPointIndex, type Scene, type SignStyle, type TipKind } from '../../core/model';
+import { TRAVEL_MODES, legMode, makeSign, outputSize, removePoint, rid, signPointIndex, type Scene, type SignStyle, type TipKind, type TravelMode } from '../../core/model';
+import { ModeIcon } from '../../ui/ModeIcon';
 import { runtime } from '../../core/runtime';
 import { formatTime } from '../../core/timing';
 import { MAP_THEMES } from '../../map/themes';
@@ -25,7 +26,10 @@ const DESCS = [
 export const STEP_LABELS = ['Route', 'Look', 'Signs', 'Camera', 'Export'];
 
 const LINE_COLORS = ['#179299', '#4c4f69', '#ffffff', '#1e66f5', '#40a02b', '#ea76cb', '#df8e1d', '#fe640b', '#d20f39'];
-const TIPS: [TipKind, string, string][] = [['pulse', 'Pulse', '◉'], ['dot', 'Dot', '●'], ['arrow', 'Arrow', '▲'], ['pin', 'Pin', '◎'], ['diamond', 'Diamond', '◆'], ['plane', 'Plane', '✈︎']];
+const TIPS: [TipKind, string, React.ReactNode][] = [
+  ['moto', 'Motorcycle', <ModeIcon mode="moto" size={22} />], ['mode', 'Transport', <ModeIcon mode="bus" size={22} />],
+  ['pulse', 'Pulse', '◉'], ['dot', 'Dot', '●'], ['arrow', 'Arrow', '▲'], ['pin', 'Pin', '◎'], ['diamond', 'Diamond', '◆'], ['plane', 'Plane', '✈\uFE0E'],
+];
 const SIGNS: [SignStyle, string, string][] = [
   ['postcard', 'Postcard', 'background:#fffdf8;border:1px solid #bcc0cc;border-top:4px solid var(--accent);border-radius:2px'],
   ['post', 'Signpost', 'background:#7a5238;clip-path:polygon(0 0,80% 0,100% 50%,80% 100%,0 100%)'],
@@ -88,6 +92,11 @@ function RoutePanel({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }) 
         <Toggle label="Smooth spline through points" value={scene.smooth} onChange={(v) => update((s) => { s.smooth = v; })} />
         <Toggle label="Number the points on the map" value={showNumbers} onChange={setShowNumbers} />
       </Group>
+      <Group title="Travel mode">
+        <ModeGrid value={scene.travel} onChange={(m) => update((s) => { s.travel = m ?? 'car'; })} />
+        <Info>Used for every leg unless a leg sets its own. Pick <b>Transport</b> as the tip symbol in step 2 to show it on the line.</Info>
+      </Group>
+      {sel > 0 && sel < scene.points.length && <LegEditor i={sel} />}
       <Group title={<>Points · {scene.points.length}{km > 0 && <span className="num normal-case tracking-normal"> · {fmtDist(km * 1000)} · ~{Math.round(rt.tm.T)} s clip</span>}</>}
         right={scene.points.length > 0 && <button className="eyebrow bg-transparent p-0 text-red! hover:underline" onClick={() => { update((s) => { s.points = []; s.signs = []; }); set({ sel: -1, selSign: null, tm: -1 }); }}>Clear</button>}>
         {big ? (
@@ -104,7 +113,13 @@ function RoutePanel({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }) 
                 <input value={q.name ?? ''} placeholder={`Point ${i + 1}`} onClick={(e) => e.stopPropagation()}
                   onChange={(e) => update((s) => { s.points[i].name = e.target.value || undefined; }, 'name-' + q.id)}
                   className="min-w-0 flex-1 truncate border-0 bg-transparent p-0 text-[13.5px] outline-none placeholder:text-text" />
-                <span className="num text-right text-[11px] leading-tight text-muted" title={i ? 'Distance from the previous point' : 'Start'}>
+                {i > 0 && (
+                  <span title={`${q.hidden ? 'Hidden leg · ' : ''}${TRAVEL_MODES.find(([m]) => m === legMode(scene, i))?.[1]}`}
+                    className={cx('flex-none', q.hidden ? 'text-faint opacity-50' : q.mode ? 'text-accent' : 'text-muted')}>
+                    <ModeIcon mode={legMode(scene, i)} size={15} />
+                  </span>
+                )}
+                <span className={cx('num text-right text-[11px] leading-tight text-muted', q.hidden && 'line-through opacity-60')} title={i ? (q.hidden ? 'Hidden leg' : 'Distance from the previous point') : 'Start'}>
                   {i ? '+' + fmtDist(rt.route.M[rt.route.idx[i]] - rt.route.M[rt.route.idx[i - 1]]) : 'start'}
                   {q.time != null && <span className="block">{new Date(q.time).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</span>}
                 </span>
@@ -119,6 +134,41 @@ function RoutePanel({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }) 
         )}
       </Group>
     </>
+  );
+}
+
+const PICKABLE_MODES = TRAVEL_MODES.filter(([m]) => m !== 'other');
+
+function ModeGrid({ value, onChange, allowDefault }: { value: TravelMode | null; onChange: (m: TravelMode | null) => void; allowDefault?: string }) {
+  const opts: [TravelMode | null, string][] = [...(allowDefault ? [[null, allowDefault] as [null, string]] : []), ...PICKABLE_MODES];
+  return (
+    <div className="grid grid-cols-4 gap-1.5">
+      {opts.map(([m, label]) => (
+        <button key={m ?? 'default'} onClick={() => onChange(m)} title={label}
+          className={cx('flex h-[54px] flex-col items-center justify-center gap-1 rounded-[9px] border text-[11px]',
+            value === m ? 'border-accent bg-card font-semibold text-text' : 'border-transparent bg-panel-2 text-text-2 hover:text-text')}>
+          {m ? <ModeIcon mode={m} size={20} /> : <span className="text-[15px] leading-5">↺</span>}
+          <span className="max-w-full truncate px-1">{m === 'moto' ? 'Moto' : m ? label : 'Default'}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Settings of the leg arriving at point i. */
+function LegEditor({ i }: { i: number }) {
+  const [scene, update] = useScene();
+  const q = scene.points[i], prev = scene.points[i - 1];
+  const rt = runtime(scene);
+  const name = (x: typeof q, j: number) => x.name || `Point ${j + 1}`;
+  const defaultLabel = `Default (${TRAVEL_MODES.find(([m]) => m === scene.travel)?.[1]})`;
+  return (
+    <Group title={<>Leg · {name(prev, i - 1)} → {name(q, i)}</>}>
+      <div className="num -mt-1.5 text-[12px] text-muted">{fmtDist(rt.route.M[rt.route.idx[i]] - rt.route.M[rt.route.idx[i - 1]])}{q.hidden ? ' · hidden' : ''}</div>
+      <ModeGrid value={q.mode ?? null} allowDefault={defaultLabel} onChange={(m) => update((s) => { s.points[i].mode = m ?? undefined; }, 'leg-mode-' + q.id)} />
+      <Toggle label="Hide this leg" value={!!q.hidden} onChange={(v) => update((s) => { s.points[i].hidden = v || undefined; })} />
+      <Info>A hidden leg isn't drawn: the line stops at {name(prev, i - 1)} and picks up again at {name(q, i)}, and the camera hops across it quickly. Handy for flights or parts you don't want to show.</Info>
+    </Group>
   );
 }
 

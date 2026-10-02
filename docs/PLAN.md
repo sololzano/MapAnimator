@@ -600,6 +600,11 @@ is the riskiest part, then widen each step.
   the timeline bar.
 - **Signs hang from route points** (`pointId`) and trigger exactly at them: pause, appear,
   or always on.
-- **Not yet built:** per-segment transport modes and great-circle arcs, music track,
+- **Legs:** each route point carries the mode of the leg arriving at it (`mode`) and a
+  `hidden` flag. Hidden legs aren't drawn, take about 4% of the drawing time, and don't add
+  to the automatic duration. Timeline mode filters and GPX track breaks create them. The
+  tip can be a hand-drawn **Motorcycle** (rider, spinning wheels) or **Transport**, which
+  switches icon per leg (Tabler badges, plane top-down).
+- **Not yet built:** great-circle arcs, music track,
   motion blur, screen overlays (date ticker, distance counter), photo signboards, Service
   Worker tile cache, offline PMTiles, PWA.

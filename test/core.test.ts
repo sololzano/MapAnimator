@@ -155,3 +155,32 @@ describe('camera framing & migration', () => {
     expect(n.exp.pace).toBe('custom');
   });
 });
+
+describe('hidden legs', () => {
+  const route = () => {
+    const ps = pts([[0, 0], [1, 0], [11, 0], [12, 0]]); // a long middle leg
+    ps[2].hidden = true;
+    return makeScene('h', { points: ps, smooth: false });
+  };
+  it('splits the drawn line into visible runs', () => {
+    const rt = runtime(route());
+    expect(rt.route.runs).toEqual([[0, 1], [2, 3]]);
+    expect(rt.route.hiddenAt(0.5)).toBe(true);
+    expect(rt.route.hiddenAt(0.02)).toBe(false);
+  });
+  it('crosses a hidden leg quickly instead of in proportion to its length', () => {
+    const s = route(), rt = runtime({ ...s, exp: { ...s.exp, ease: 0 } });
+    const p1 = rt.route.pointP[1], p2 = rt.route.pointP[2];
+    const crossing = rt.tm.timeAtP(p2) - rt.tm.timeAtP(p1);
+    expect(p2 - p1).toBeGreaterThan(0.8); // most of the length…
+    expect(crossing / rt.tm.travel).toBeLessThan(0.1); // …but a small share of the time
+    // progressAt and timeAtP stay inverse across the warp.
+    const t = rt.tm.timeAtP(0.5);
+    expect(rt.tm.progressAt(t)).toBeCloseTo(0.5, 4);
+  });
+  it('hidden distance does not lengthen the clip', () => {
+    const s = route();
+    const shown = runtime({ ...s, points: s.points.map((q) => ({ ...q, hidden: undefined })) }).tm.auto;
+    expect(runtime(s).tm.auto).toBeLessThan(shown);
+  });
+});

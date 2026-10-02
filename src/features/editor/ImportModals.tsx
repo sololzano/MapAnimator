@@ -131,7 +131,7 @@ export function TimelineImportModal({ tl, fileName, onDone, onCancel }: { tl: Pa
               );
             })}
           </div>
-          <Info>Unticked legs are left out; stops are always kept. Where a leg is skipped, the line goes straight from the last kept point to the next.</Info>
+          <Info>Unticked modes become <b>hidden legs</b>: not drawn, crossed quickly by the camera. Stops are always kept, and every leg remembers its mode for the <b>Transport</b> tip.</Info>
         </div>
       )}
       <Slider label="Editable points" value={Math.min(max, Math.max(2, filtered.pts.length))} min={2} max={Math.max(3, Math.min(400, filtered.pts.length))} step={1}
