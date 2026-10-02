@@ -19,7 +19,7 @@ const TITLES = ['Route', 'Look', 'Signs', 'Camera', 'Preview & export'];
 const DESCS = [
   'Click to draw, import a GPX or a dated JSON timeline, then drag points to reshape.',
   'Map style, labels and the look of the line. Appearance only — motion comes later.',
-  'Add signboards on or off the route. Choose whether the line stops for them.',
+  'Hang signboards on route points, and add on-screen date and distance counters.',
   'Decide how the camera moves: follow, pan, zoom, rotate.',
   'Pick resolution, frame rate and format. Pace and pauses live in the timeline below.',
 ];
@@ -96,7 +96,7 @@ function RoutePanel({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }) 
         <ModeGrid value={scene.travel} onChange={(m) => update((s) => { s.travel = m ?? 'car'; })} />
         <Info>Used for every leg unless a leg sets its own. Pick <b>Transport</b> as the tip symbol in step 2 to show it on the line.</Info>
       </Group>
-      {sel > 0 && sel < scene.points.length && <LegEditor i={sel} />}
+      {sel >= 0 && sel < scene.points.length && <PointEditor i={sel} />}
       <Group title={<>Points · {scene.points.length}{km > 0 && <span className="num normal-case tracking-normal"> · {fmtDist(km * 1000)} · ~{Math.round(rt.tm.T)} s clip</span>}</>}
         right={scene.points.length > 0 && <button className="eyebrow bg-transparent p-0 text-red! hover:underline" onClick={() => { update((s) => { s.points = []; s.signs = []; }); set({ sel: -1, selSign: null, tm: -1 }); }}>Clear</button>}>
         {big ? (
@@ -155,20 +155,43 @@ function ModeGrid({ value, onChange, allowDefault }: { value: TravelMode | null;
   );
 }
 
-/** Settings of the leg arriving at point i. */
-function LegEditor({ i }: { i: number }) {
+const pad2 = (n: number) => String(n).padStart(2, '0');
+/** Epoch ms → yyyy-mm-dd in local time (for <input type="date">). */
+function toDateInput(t?: number): string {
+  if (t == null || !Number.isFinite(t)) return '';
+  const d = new Date(t);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+/** The selected point: its date, and the leg arriving at it. */
+function PointEditor({ i }: { i: number }) {
   const [scene, update] = useScene();
   const q = scene.points[i], prev = scene.points[i - 1];
   const rt = runtime(scene);
   const name = (x: typeof q, j: number) => x.name || `Point ${j + 1}`;
   const defaultLabel = `Default (${TRAVEL_MODES.find(([m]) => m === scene.travel)?.[1]})`;
   return (
-    <Group title={<>Leg · {name(prev, i - 1)} → {name(q, i)}</>}>
-      <div className="num -mt-1.5 text-[12px] text-muted">{fmtDist(rt.route.M[rt.route.idx[i]] - rt.route.M[rt.route.idx[i - 1]])}{q.hidden ? ' · hidden' : ''}</div>
-      <ModeGrid value={q.mode ?? null} allowDefault={defaultLabel} onChange={(m) => update((s) => { s.points[i].mode = m ?? undefined; }, 'leg-mode-' + q.id)} />
-      <Toggle label="Hide this leg" value={!!q.hidden} onChange={(v) => update((s) => { s.points[i].hidden = v || undefined; })} />
-      <Info>A hidden leg isn't drawn: the line stops at {name(prev, i - 1)} and picks up again at {name(q, i)}, and the camera hops across it quickly. Handy for flights or parts you don't want to show.</Info>
-    </Group>
+    <>
+      <Group title={<>Point {i + 1} · {name(q, i)}</>}>
+        <label className="flex flex-col gap-1.5 text-[13.5px]">
+          <span className="flex justify-between">Date at this point
+            {q.time != null && <button className="border-0 bg-transparent p-0 text-[12px] text-accent hover:underline" onClick={() => update((s) => { s.points[i].time = undefined; })}>Clear</button>}
+          </span>
+          <input type="date" value={toDateInput(q.time)}
+            onChange={(e) => { const v = e.target.value; update((s) => { s.points[i].time = v ? new Date(v + 'T12:00:00').getTime() : undefined; }, 'date-' + q.id); }}
+            className="num h-[38px] rounded-[9px] border border-line-strong bg-card px-2.5 text-[14px] text-text outline-none focus:border-accent" />
+        </label>
+        <Info>Used by the on-screen date counter (step 3). Dates between dated points are filled in as the line travels.</Info>
+      </Group>
+      {i > 0 && (
+        <Group title={<>Leg · {name(prev, i - 1)} → {name(q, i)}</>}>
+          <div className="num -mt-1.5 text-[12px] text-muted">{fmtDist(rt.route.M[rt.route.idx[i]] - rt.route.M[rt.route.idx[i - 1]])}{q.hidden ? ' · hidden' : ''}</div>
+          <ModeGrid value={q.mode ?? null} allowDefault={defaultLabel} onChange={(m) => update((s) => { s.points[i].mode = m ?? undefined; }, 'leg-mode-' + q.id)} />
+          <Toggle label="Hide this leg" value={!!q.hidden} onChange={(v) => update((s) => { s.points[i].hidden = v || undefined; })} />
+          <Info>A hidden leg isn't drawn: the line stops at {name(prev, i - 1)} and picks up again at {name(q, i)}, and the camera hops across it quickly. Handy for flights or parts you don't want to show.</Info>
+        </Group>
+      )}
+    </>
   );
 }
 
@@ -307,7 +330,32 @@ function SignsPanel() {
           {!scene.signs.length && <div className="px-2"><Info>No signs yet.</Info></div>}
         </div>
       </Group>
+      <CountersGroup />
     </>
+  );
+}
+
+function CountersGroup() {
+  const [scene, update] = useScene();
+  const hud = scene.hud;
+  const setH = <K extends keyof Scene['hud']>(k: K) => (v: Scene['hud'][K]) => update((s) => { s.hud[k] = v; }, 'hud-' + String(k));
+  const dated = scene.points.filter((q) => q.time != null).length;
+  return (
+    <Group title="On-screen counters">
+      <Toggle label="Date" value={hud.date} onChange={setH('date')} />
+      {hud.date && (
+        <>
+          <Segmented value={hud.dateStyle} options={[['date', '3 Oct 2025'], ['day', 'Day 3'], ['both', 'Both']]} onChange={setH('dateStyle')} />
+          {dated === 0 && <Info>No point has a date yet. Import a dated GPX or timeline, or pick a point in step 1 and set its date.</Info>}
+          {dated === 1 && <Info>Only one point has a date, so the counter stays on that day. Date a few more points (step 1) to make it run.</Info>}
+        </>
+      )}
+      <Toggle label="Distance travelled" value={hud.distance} onChange={setH('distance')} />
+      {hud.distance && <Segmented value={hud.units} options={[['km', 'Kilometres'], ['mi', 'Miles']]} onChange={setH('units')} />}
+      {(hud.date || hud.distance) && (
+        <Segmented label="Corner" value={hud.corner} options={[['tl', '↖'], ['tr', '↗'], ['bl', '↙'], ['br', '↘']]} onChange={setH('corner')} />
+      )}
+    </Group>
   );
 }
 

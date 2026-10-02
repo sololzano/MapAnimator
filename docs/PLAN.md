@@ -605,6 +605,8 @@ is the riskiest part, then widen each step.
   to the automatic duration. Timeline mode filters and GPX track breaks create them. The
   tip can be a hand-drawn **Motorcycle** (rider, spinning wheels) or **Transport**, which
   switches icon per leg (Tabler badges, plane top-down).
+- **On-screen counters** (Signs step): date (date / "Day N" / both) and distance (km/mi)
+  in a corner card. The date interpolates between dated points; points can be dated by hand.
 - **Not yet built:** great-circle arcs, music track,
-  motion blur, screen overlays (date ticker, distance counter), photo signboards, Service
+  motion blur, title cards, photo signboards, Service
   Worker tile cache, offline PMTiles, PWA.

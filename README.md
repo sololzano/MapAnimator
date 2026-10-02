@@ -33,7 +33,7 @@ npm test
 | Projects | Projects live in this browser (IndexedDB). Download one as a `.chilaquil` file to keep it, or open it later from file. |
 | 1 · Route | Click to draw, drag points, drag the small circles to insert, right-click/Delete to remove. Import GPX/KML or a Google Timeline JSON and pick the dates and travel modes. Set a travel mode per leg, or hide legs you don't want drawn. |
 | 2 · Look | Map theme (Latte, Frappé, Paper, Mono, Terrain, Satellite, Night, Blueprint), labels and language, visited-country shading, roads, 3D terrain, line and marker style. |
-| 3 · Signs | Postcard, signpost, ticket and tag signboards. They appear when the line reaches them, or pause the line for a few seconds. |
+| 3 · Signs | Postcard, signpost, ticket and tag signboards hung on route points: pause the line, appear when it arrives, or stay on. Optional on-screen date and distance counters. |
 | 4 · Camera | Follow the line or a static overview, framed right on the map (drag, scroll, right-drag). North-up or heading-up, zoom, look-ahead, smoothing, tilt, intro/outro and zoom keyframes. |
 | 5 · Export | 720p–4K, 24/30/60 fps; MP4 (H.264), WebM (VP9) or GIF. Export one scene or all of them. Pace, easing and holds live on the timeline bar. |
 

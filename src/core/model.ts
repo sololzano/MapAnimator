@@ -128,6 +128,19 @@ export interface ExportSettings {
   fmt: VideoFormat;
 }
 
+/** On-screen counters drawn in a corner of the video. */
+export interface HudSettings {
+  date: boolean;
+  distance: boolean;
+  dateStyle: 'date' | 'day' | 'both';
+  units: 'km' | 'mi';
+  corner: 'tl' | 'tr' | 'bl' | 'br';
+}
+
+export function defaultHud(): HudSettings {
+  return { date: false, distance: false, dateStyle: 'date', units: 'km', corner: 'tl' };
+}
+
 export interface Scene {
   id: string;
   name: string;
@@ -138,6 +151,7 @@ export interface Scene {
   points: RoutePoint[];
   signs: Sign[];
   look: Look;
+  hud: HudSettings;
   cam: CameraSettings;
   exp: ExportSettings;
 }
@@ -176,7 +190,7 @@ export function defaultExport(): ExportSettings {
 export function makeScene(name: string, over: Partial<Scene> = {}): Scene {
   return {
     id: rid('s'), name, ratio: '16:9', smooth: true, travel: 'car', points: [], signs: [],
-    look: defaultLook(), cam: defaultCamera(), exp: defaultExport(), ...over,
+    look: defaultLook(), hud: defaultHud(), cam: defaultCamera(), exp: defaultExport(), ...over,
   };
 }
 
@@ -213,9 +227,11 @@ export function normalizeScene(s: Scene): Scene {
   const needExp = !exp.pace;
   const needSigns = s.signs.some((g) => !s.points.some((q) => q.id === g.pointId));
   const needTravel = !s.travel;
-  if (!needCam && !needExp && !needSigns && !needTravel) return s;
+  const needHud = !s.hud;
+  if (!needCam && !needExp && !needSigns && !needTravel && !needHud) return s;
   return {
     ...s,
+    hud: s.hud ?? defaultHud(),
     travel: s.travel ?? 'car',
     cam: needCam ? { ...cam, mode: cam.mode === 'overview' ? 'overview' : 'follow', view: cam.view ?? null } : s.cam,
     exp: needExp ? { ...exp, pace: exp.speed === 1 ? 'normal' : 'custom' } : s.exp,

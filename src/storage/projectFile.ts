@@ -15,7 +15,10 @@ const sign = z.object({
 const scene = z.object({
   id: z.string().optional(), name: z.string().max(200), ratio: z.enum(['16:9', '9:16', '1:1', '4:5']), smooth: z.boolean().optional(),
   points: z.array(point).max(200000), signs: z.array(sign).max(5000),
-  look: z.record(z.string(), z.unknown()).optional(), cam: z.record(z.string(), z.unknown()).optional(), exp: z.record(z.string(), z.unknown()).optional(),
+  look: z.record(z.string(), z.unknown()).optional(),
+  hud: z.object({
+    date: z.boolean(), distance: z.boolean(), dateStyle: z.enum(['date', 'day', 'both']), units: z.enum(['km', 'mi']), corner: z.enum(['tl', 'tr', 'bl', 'br']),
+  }).partial().optional(), cam: z.record(z.string(), z.unknown()).optional(), exp: z.record(z.string(), z.unknown()).optional(),
 });
 const projectSchema = z.object({ name: z.string().max(200), scenes: z.array(scene).min(1).max(500) });
 
@@ -74,6 +77,7 @@ export async function projectFromFile(file: File): Promise<Project> {
           pointId: (pointId && idMap.get(pointId)) || points[signPointIndex(points, { pointId: '', lng, lat } as Sign)].id,
         })) : [],
         look: { ...base.look, ...(s.look as object) },
+        hud: { ...base.hud, ...s.hud },
         cam: { ...base.cam, ...(s.cam as object), kfs: kfsOf(s.cam), view: viewOf(s.cam) },
         exp: { ...base.exp, ...(s.exp as object) },
       };

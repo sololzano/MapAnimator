@@ -6,6 +6,8 @@ import type { FrameState, SceneRuntime } from '../core/runtime';
 import { mapTheme } from '../map/themes';
 import { SIGN_FONT, drawSignBody } from './signs';
 import { drawModeBadge, drawMotorcycle, type Pose } from './transport';
+import { hudItems } from '../core/hud';
+import { drawHud } from './hud';
 
 export type Project = (lng: number, lat: number) => { x: number; y: number };
 
@@ -158,6 +160,8 @@ export function drawOverlay(o: OverlayInput): SignHit[] {
 
   // The tip disappears while crossing a hidden leg.
   if (n > 0 && !route.hiddenAt(p)) drawTip(ctx, scene, rt, frame, head, project, k, ring);
+
+  drawHud(ctx, hudItems(scene, route, p), scene.hud, o.frameRect, k, dark, look.color);
 
   if (o.attribution) {
     const fr = o.frameRect, fs = Math.max(8, 9.5 * k);
