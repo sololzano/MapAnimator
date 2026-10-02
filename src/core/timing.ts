@@ -1,0 +1,81 @@
+import { toMerc } from './geo';
+import type { Scene } from './model';
+import type { RouteModel } from './route';
+
+/** Seconds needed to draw the whole line at speed ×1. */
+export const BASE_TRAVEL = 14;
+/** Seconds a sign takes to fade/pop in. */
+export const SIGN_IN = 0.5;
+
+export interface Pause { id: string; p: number; dur: number }
+
+export interface TimeMap {
+  /** Total scene duration, seconds. */
+  T: number;
+  pre: number;
+  post: number;
+  travel: number;
+  pauses: Pause[];
+  /** Route progress 0..1 at scene time t. */
+  progressAt(t: number): number;
+  /** Scene time at which the line reaches progress p. */
+  timeAtP(p: number): number;
+  /** Progress at which each sign triggers, by sign id. */
+  signP: Map<string, number>;
+}
+
+const cache = new WeakMap<Scene, TimeMap>();
+
+export function buildTimeMap(scene: Scene, route: RouteModel): TimeMap {
+  const hit = cache.get(scene);
+  if (hit) return hit;
+  const e = scene.exp, k = e.ease / 100;
+  const ease = (u: number) => (1 - k) * u + k * u * u * (3 - 2 * u);
+  const inv = (p: number) => {
+    let a = 0, b = 1;
+    for (let i = 0; i < 30; i++) { const m = (a + b) / 2; if (ease(m) < p) a = m; else b = m; }
+    return (a + b) / 2;
+  };
+  const travel = route.S.length > 1 ? Math.max(2, BASE_TRAVEL / Math.max(0.05, e.speed)) : 2;
+  const signP = new Map<string, number>();
+  for (const g of scene.signs) signP.set(g.id, route.nearest(toMerc(g.lng, g.lat)).p);
+  const pauses = scene.signs
+    .filter((g) => g.trigger === 'pause')
+    .map((g) => ({ id: g.id, p: signP.get(g.id)!, dur: Math.max(0, g.pause) }))
+    .sort((a, b) => a.p - b.p);
+  const held = pauses.reduce((a, q) => a + q.dur, 0);
+  const T = e.pre + travel + held + e.post;
+
+  const progressAt = (t: number) => {
+    const tau = t - e.pre;
+    if (tau <= 0) return 0;
+    let acc = 0;
+    for (const q of pauses) {
+      const st = inv(q.p) * travel + acc;
+      if (tau < st) break;
+      if (tau < st + q.dur) return q.p;
+      acc += q.dur;
+    }
+    return Math.min(1, ease(Math.min(1, (tau - acc) / travel)));
+  };
+  const timeAtP = (p: number) => {
+    let acc = 0;
+    for (const q of pauses) if (q.p < p - 1e-9) acc += q.dur;
+    return e.pre + inv(p) * travel + acc;
+  };
+  const tm: TimeMap = { T, pre: e.pre, post: e.post, travel, pauses, progressAt, timeAtP, signP };
+  cache.set(scene, tm);
+  return tm;
+}
+
+/** Sign visibility 0..1 at time t (signs never leave once shown). */
+export function signVisibility(trigger: Scene['signs'][number]['trigger'], tReach: number, t: number): number {
+  if (trigger === 'always') return 1;
+  const x = (t - tReach + 0.001) / SIGN_IN;
+  return x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x);
+}
+
+export function formatTime(t: number): string {
+  const m = Math.floor(t / 60), s = t - m * 60;
+  return String(m).padStart(2, '0') + ':' + s.toFixed(1).padStart(4, '0');
+}

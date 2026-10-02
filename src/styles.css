@@ -1,0 +1,123 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+@import "maplibre-gl/dist/maplibre-gl.css";
+
+/* Catppuccin Latte (light) and Frappé (dark), teal accent. */
+:root,
+:root[data-theme="latte"] {
+  color-scheme: light;
+  --bg: #eff1f5;
+  --panel: #e6e9ef;
+  --panel-2: #dce0e8;
+  --card: #fbfbfd;
+  --line: #dce0e8;
+  --line-strong: #ccd0da;
+  --line-x: #bcc0cc;
+  --text: #4c4f69;
+  --text-2: #5c5f77;
+  --muted: #6c6f85;
+  --faint: #8c8fa1;
+  --accent: #179299;
+  --accent-hover: #11787e;
+  --on-accent: #ffffff;
+  --accent-soft: #d2e9ea;
+  --inverse: #4c4f69;
+  --on-inverse: #eff1f5;
+  --blue: #1e66f5;
+  --blue-soft: #d6e2fb;
+  --blue-ink: #1b4fb8;
+  --green: #40a02b;
+  --green-soft: #dbecd5;
+  --green-ink: #2c6e1e;
+  --red: #d20f39;
+  --peach: #fe640b;
+  --hatch-a: #dce0e8;
+  --hatch-b: #e6e9ef;
+  --scrim: rgba(35, 38, 52, 0.45);
+  --shadow: 0 4px 18px rgba(76, 79, 105, 0.18);
+}
+
+:root[data-theme="frappe"] {
+  color-scheme: dark;
+  --bg: #303446;
+  --panel: #292c3c;
+  --panel-2: #232634;
+  --card: #353a4d;
+  --line: #414559;
+  --line-strong: #51576d;
+  --line-x: #626880;
+  --text: #c6d0f5;
+  --text-2: #b5bfe2;
+  --muted: #a5adce;
+  --faint: #838ba7;
+  --accent: #81c8be;
+  --accent-hover: #9ad5cc;
+  --on-accent: #232634;
+  --accent-soft: #3a5354;
+  --inverse: #c6d0f5;
+  --on-inverse: #303446;
+  --blue: #8caaee;
+  --blue-soft: #3b4766;
+  --blue-ink: #c3d3f7;
+  --green: #a6d189;
+  --green-soft: #3e4d3e;
+  --green-ink: #d3e9c3;
+  --red: #e78284;
+  --peach: #ef9f76;
+  --hatch-a: #3a3f53;
+  --hatch-b: #414559;
+  --scrim: rgba(17, 18, 26, 0.6);
+  --shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
+}
+
+@theme inline {
+  --font-sans: "Inter Variable", Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-card: var(--card);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-line-x: var(--line-x);
+  --color-text: var(--text);
+  --color-text-2: var(--text-2);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-on-accent: var(--on-accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-inverse: var(--inverse);
+  --color-on-inverse: var(--on-inverse);
+  --color-blue: var(--blue);
+  --color-blue-soft: var(--blue-soft);
+  --color-blue-ink: var(--blue-ink);
+  --color-green: var(--green);
+  --color-green-soft: var(--green-soft);
+  --color-green-ink: var(--green-ink);
+  --color-red: var(--red);
+}
+
+html, body, #root { height: 100%; margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+button { cursor: pointer; font: inherit; color: inherit; }
+button:disabled { cursor: default; }
+input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+input[type="range"] { accent-color: var(--accent); width: 100%; margin: 0; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 6px; border: 2px solid transparent; background-clip: content-box; }
+
+.num { font-variant-numeric: tabular-nums; }
+.eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+
+.maplibregl-canvas:focus-visible { outline: none; }
+.hatch { background: repeating-linear-gradient(135deg, var(--hatch-a) 0 4px, var(--hatch-b) 4px 8px); }
