@@ -1,0 +1,19 @@
+{
+  "semanticSegments": [
+    { "startTime": "2025-10-03T09:00:00.000+01:00", "endTime": "2025-10-03T10:00:00.000+01:00",
+      "visit": { "probability": 0.9, "topCandidate": { "placeId": "synthetic-1", "semanticType": "UNKNOWN", "probability": 0.9, "placeLocation": { "latLng": "38.7223000°, -9.1393000°" } } } },
+    { "startTime": "2025-10-03T10:00:00.000+01:00", "endTime": "2025-10-03T11:30:00.000+01:00",
+      "activity": { "start": { "latLng": "38.7223000°, -9.1393000°" }, "end": { "latLng": "39.3606000°, -9.1571000°" }, "distanceMeters": 80000, "topCandidate": { "type": "IN_PASSENGER_VEHICLE", "probability": 0.95 } } },
+    { "startTime": "2025-10-03T10:00:00.000+01:00", "endTime": "2025-10-03T12:00:00.000+01:00",
+      "timelinePath": [ { "point": "38.9000000°, -9.1600000°", "time": "2025-10-03T10:20:00.000+01:00" }, { "point": "39.1000000°, -9.2000000°", "time": "2025-10-03T10:50:00.000+01:00" } ] },
+    { "startTime": "2025-10-03T11:30:00.000+01:00", "endTime": "2025-10-03T15:00:00.000+01:00",
+      "visit": { "probability": 0.8, "topCandidate": { "placeId": "synthetic-2", "semanticType": "UNKNOWN", "probability": 0.8, "placeLocation": { "latLng": "39.3606000°, -9.1571000°" } } } },
+    { "startTime": "2025-10-04T09:00:00.000+01:00", "endTime": "2025-10-04T11:00:00.000+01:00",
+      "activity": { "start": { "latLng": "39.3606000°, -9.1571000°" }, "end": { "latLng": "40.2033000°, -8.4103000°" }, "topCandidate": { "type": "IN_TRAIN", "probability": 0.8 } } }
+  ],
+  "rawSignals": [
+    { "position": { "LatLng": "38.8000000°, -9.1500000°", "accuracyMeters": 10, "source": "GPS", "timestamp": "2025-10-03T10:10:00.000+01:00" } },
+    { "wifiScan": { "deliveryTime": "2025-10-03T10:10:00.000+01:00", "devicesRecords": [] } }
+  ],
+  "userLocationProfile": { "frequentPlaces": [] }
+}

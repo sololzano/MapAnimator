@@ -98,6 +98,7 @@
   --color-red: var(--red);
 }
 
+@layer base {
 html, body, #root { height: 100%; margin: 0; }
 body {
   background: var(--bg);
@@ -115,9 +116,12 @@ input, select, textarea { font: inherit; color: inherit; }
 input[type="range"] { accent-color: var(--accent); width: 100%; margin: 0; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 6px; border: 2px solid transparent; background-clip: content-box; }
+}
 
-.num { font-variant-numeric: tabular-nums; }
-.eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+@layer components {
+  .num { font-variant-numeric: tabular-nums; }
+  .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .hatch { background: repeating-linear-gradient(135deg, var(--hatch-a) 0 4px, var(--hatch-b) 4px 8px); }
+}
 
 .maplibregl-canvas:focus-visible { outline: none; }
-.hatch { background: repeating-linear-gradient(135deg, var(--hatch-a) 0 4px, var(--hatch-b) 4px 8px); }

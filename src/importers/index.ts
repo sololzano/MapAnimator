@@ -1,4 +1,4 @@
-import { gpx as gpxToGeoJSON } from '@tmcw/togeojson';
+import { gpx as gpxToGeoJSON, kml as kmlToGeoJSON } from '@tmcw/togeojson';
 import { simplifyToCount, toMerc } from '../core/geo';
 import { rid, type RoutePoint } from '../core/model';
 import type { ParsedTimeline } from './timeline';
@@ -21,11 +21,11 @@ export function parseTimelineFile(file: File): Promise<ParsedTimeline> {
   });
 }
 
-/** GPX (tracks, routes and waypoints) via togeojson. */
-export function parseGpx(text: string): RouteImport {
+/** GPX or KML (tracks, routes and waypoints) via togeojson. */
+export function parseGpx(text: string, kml = false): RouteImport {
   const doc = new DOMParser().parseFromString(text, 'text/xml');
-  if (doc.querySelector('parsererror')) throw new Error('That GPX file is not valid XML.');
-  const fc = gpxToGeoJSON(doc);
+  if (doc.querySelector('parsererror')) throw new Error('That file is not valid XML.');
+  const fc = kml ? kmlToGeoJSON(doc) : gpxToGeoJSON(doc);
   const pts: RawRoutePoint[] = [], waypoints: RawRoutePoint[] = [];
   for (const f of fc.features) {
     const g = f.geometry;
@@ -43,7 +43,7 @@ export function parseGpx(text: string): RouteImport {
   }
   // A GPX with only waypoints is itself the route.
   if (pts.length < 2 && waypoints.length >= 2) return { pts: waypoints, waypoints: [] };
-  if (pts.length < 2) throw new Error('No track or route found in that GPX file.');
+  if (pts.length < 2) throw new Error('No track or route found in that file.');
   return { pts, waypoints };
 }
 

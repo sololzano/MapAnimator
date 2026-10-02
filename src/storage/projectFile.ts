@@ -31,6 +31,13 @@ export function projectFileName(p: Project): string {
   return (p.name.toLowerCase().normalize('NFKD').replace(/[^\w]+/g, '-').replace(/^-|-$/g, '') || 'project') + PROJECT_EXT;
 }
 
+const kf = z.object({ p: num, z: num });
+
+function kfsOf(cam: unknown) {
+  const r = z.array(kf).safeParse((cam as { kfs?: unknown } | undefined)?.kfs);
+  return r.success ? r.data.map((k) => ({ id: rid('k'), p: Math.max(0, Math.min(1, k.p)), z: k.z })) : [];
+}
+
 /** Parse and validate an untrusted project file. Always returns a fresh copy with new ids. */
 export async function projectFromFile(file: File): Promise<Project> {
   const buf = new Uint8Array(await file.arrayBuffer());
@@ -55,7 +62,7 @@ export async function projectFromFile(file: File): Promise<Project> {
         points: s.points.map((q) => ({ ...q, id: rid('r') })),
         signs: s.signs.map((g) => ({ ...g, id: rid('g'), dx: g.dx ?? 110, dy: g.dy ?? -70 })),
         look: { ...base.look, ...(s.look as object) },
-        cam: { ...base.cam, ...(s.cam as object), kfs: Array.isArray((s.cam as { kfs?: unknown })?.kfs) ? (s.cam as typeof base.cam).kfs : [] },
+        cam: { ...base.cam, ...(s.cam as object), kfs: kfsOf(s.cam) },
         exp: { ...base.exp, ...(s.exp as object) },
       };
     }),

@@ -1,0 +1,5 @@
+[
+  { "startTime": "2025-10-03T09:00:00.000+01:00", "endTime": "2025-10-03T10:00:00.000+01:00", "visit": { "hierarchyLevel": "0", "probability": "0.9", "topCandidate": { "probability": "0.9", "semanticType": "Unknown", "placeID": "synthetic-1", "placeLocation": "geo:38.722300,-9.139300" } } },
+  { "startTime": "2025-10-03T10:00:00.000+01:00", "endTime": "2025-10-03T11:30:00.000+01:00", "activity": { "start": "geo:38.722300,-9.139300", "end": "geo:39.360600,-9.157100", "distanceMeters": "80000", "topCandidate": { "type": "in passenger vehicle", "probability": "0.9" } } },
+  { "startTime": "2025-10-03T10:00:00.000+01:00", "endTime": "2025-10-03T12:00:00.000+01:00", "timelinePath": [ { "point": "geo:38.900000,-9.160000", "durationMinutesOffsetFromStartTime": "20" }, { "point": "geo:39.100000,-9.200000", "durationMinutesOffsetFromStartTime": "50" } ] }
+]

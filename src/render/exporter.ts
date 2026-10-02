@@ -3,7 +3,7 @@
 // is loaded, composite map + overlay onto a 2D canvas and hand it to
 // Mediabunny (WebCodecs, hardware-accelerated where available). No frame is
 // ever captured half-loaded, and nothing leaves the machine.
-import maplibregl from 'maplibre-gl';
+import { Map as MlMap } from 'maplibre-gl';
 import {
   BufferTarget, CanvasSource, Mp4OutputFormat, Output, QUALITY_HIGH, StreamTarget, WebMOutputFormat, canEncodeVideo,
   type VideoCodec,
@@ -52,7 +52,7 @@ async function pickCodec(scene: Scene, w: number, h: number): Promise<VideoCodec
   throw new Error(`This browser cannot encode ${scene.exp.fmt.toUpperCase()} at ${w}×${h}. Try WebM, a lower resolution, or a Chromium-based browser.`);
 }
 
-function waitFor(map: maplibregl.Map, signal?: AbortSignal): Promise<void> {
+function waitFor(map: MlMap, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     const t0 = performance.now();
     const tick = () => {
@@ -85,7 +85,7 @@ export async function exportScene(job: ExportJob): Promise<Blob | null> {
   const host = document.createElement('div');
   host.style.cssText = `position:fixed;left:${-W - 200}px;top:0;width:${W}px;height:${H}px;pointer-events:none;`;
   document.body.appendChild(host);
-  const map = new maplibregl.Map({
+  const map = new MlMap({
     container: host,
     style: buildStyle(scene.look, { scale, countriesUrl, visited }),
     interactive: false,

@@ -1,0 +1,4 @@
+{ "timelineObjects": [
+  { "placeVisit": { "location": { "latitudeE7": 393606000, "longitudeE7": -91571000, "name": "Óbidos Castle", "address": "Óbidos, Portugal" }, "duration": { "startTimestamp": "2025-10-04T10:00:00Z", "endTimestamp": "2025-10-04T12:00:00Z" } } },
+  { "activitySegment": { "startLocation": { "latitudeE7": 393606000, "longitudeE7": -91571000 }, "endLocation": { "latitudeE7": 402033000, "longitudeE7": -84103000 }, "duration": { "startTimestamp": "2025-10-04T12:00:00Z", "endTimestamp": "2025-10-04T14:00:00Z" }, "activityType": "IN_PASSENGER_VEHICLE", "waypointPath": { "waypoints": [ { "latE7": 397000000, "lngE7": -88000000 } ] } } }
+] }
