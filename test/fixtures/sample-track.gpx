@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="synthetic" xmlns="http://www.topografix.com/GPX/1/1">
+  <wpt lat="46.5197" lon="6.6323"><name>Lausanne</name><time>2025-07-01T08:00:00Z</time></wpt>
+  <wpt lat="46.4312" lon="6.9107"><name>Vevey</name></wpt>
+  <trk><name>Lake Geneva ride</name><trkseg>
+    <trkpt lat="46.5197" lon="6.6323"><time>2025-07-01T08:00:00Z</time></trkpt>
+    <trkpt lat="46.5050" lon="6.6900"><time>2025-07-01T08:20:00Z</time></trkpt>
+    <trkpt lat="46.4900" lon="6.7400"><time>2025-07-01T08:40:00Z</time></trkpt>
+    <trkpt lat="46.4800" lon="6.7900"><time>2025-07-01T09:00:00Z</time></trkpt>
+    <trkpt lat="46.4600" lon="6.8400"><time>2025-07-01T09:20:00Z</time></trkpt>
+    <trkpt lat="46.4312" lon="6.9107"><time>2025-07-01T09:40:00Z</time></trkpt>
+    <trkpt lat="46.4100" lon="6.9300"><time>2025-07-01T10:00:00Z</time></trkpt>
+    <trkpt lat="46.3900" lon="6.9500"><time>2025-07-01T10:20:00Z</time></trkpt>
+  </trkseg></trk>
+</gpx>

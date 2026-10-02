@@ -1,4 +1,10 @@
-# MapAnimator: Implementation Plan
+# ElChilaquilWasHere: Implementation Plan
+
+> **Status (2026-10-02):** v0.1 implemented, following `design/Wayline.dc.html` with
+> Catppuccin Latte/Frappé + Teal and Inter. Done: projects page, `.chilaquil` files,
+> editor shell, all five steps, Google Timeline (4 formats) and GPX/KML import,
+> deterministic preview, and MP4/WebM/GIF export (single and batch). See "Deviations"
+> at the end for what changed from this plan.
 
 An open source, free, **100% client-side** web app for making travel route animations.
 Everything (parsing, editing, rendering, video encoding) runs in the user's browser on
@@ -567,3 +573,26 @@ is the riskiest part, then widen each step.
 6. **Music track** support in export (local file only), planned for M8.
 7. The reference screenshot's right inspector is **folded into the left sidebar**, keeping
    the layout you specified (left / center / top / bottom).
+
+---
+
+## 15. Deviations in v0.1 (what was built vs. this plan)
+
+- **Route, tip, markers and signs are drawn on a Canvas2D overlay** (`src/render/overlay.ts`),
+  not MapLibre `line-gradient` layers. One code path serves preview and export, dashes,
+  glow and tip symbols need no special cases, and line growth is synchronous (no GeoJSON
+  worker round-trip per frame).
+- **Reference frame:** logical 720p short side. The preview passes the frame scale to the
+  style builder (labels, roads) and to the overlay, and shifts zoom by `log2(frame/logical)`,
+  instead of CSS-scaling the map.
+- **Export grabs pixels with `gl.readPixels`**, not `drawImage(webglCanvas)`. In Chromium
+  the latter stalled about 200 ms per frame waiting on the compositor. 1080p30 now renders
+  faster than real time on a GTX 1080 Ti.
+- **MapLibre 6** locates its worker relative to its own module, so `src/map/setup.ts` sets
+  the worker URL from a Vite `?worker&url` import.
+- **Camera model** follows the design (follow / pan / overview, zoom keyframes, intro and
+  outro) rather than the per-block camera track. Smoothing is a fixed-rate Gaussian filter
+  (`src/core/camera.ts`).
+- **Not yet built:** per-segment transport modes and great-circle arcs, music track,
+  motion blur, screen overlays (date ticker, distance counter), photo signboards, Service
+  Worker tile cache, offline PMTiles, PWA.

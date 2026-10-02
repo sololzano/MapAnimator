@@ -62,6 +62,8 @@ export function Stage({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }
   const drag = useRef<Drag | null>(null);
   const suppressClick = useRef(false);
   const savedView = useRef<JumpToOptions | null>(null);
+  /** Until the user moves the map, keep the route fitted to the frame (e.g. while the window resizes). */
+  const userMoved = useRef(false);
 
   useEffect(() => {
     const cs = getComputedStyle(document.documentElement);
@@ -126,8 +128,13 @@ export function Stage({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }
       canvasContextAttributes: { antialias: true },
     });
     mapRef.current = map;
+    if (import.meta.env.DEV) (window as unknown as { __map: MlMap }).__map = map;
     map.on('render', draw);
     map.on('load', () => { setStyleReady(true); fit(false); });
+    const touched = (e: { originalEvent?: unknown }) => { if (e.originalEvent) userMoved.current = true; };
+    map.on('dragstart', touched);
+    map.on('zoomstart', touched);
+    map.on('rotatestart', touched);
     map.on('click', (e: MapMouseEvent) => {
       if (suppressClick.current) { suppressClick.current = false; return; }
       const s = L.current;
@@ -138,7 +145,7 @@ export function Stage({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }
       } else if (s.step === 1) set({ sel: -1 });
       else if (s.step === 3) set({ selSign: null });
     });
-    const offFit = stageBus.on('fit', () => fit(true));
+    const offFit = stageBus.on('fit', () => { userMoved.current = false; fit(true); });
     const offZoom = stageBus.on('zoom', (d) => map.easeTo({ zoom: map.getZoom() + (d as number), duration: 250 }));
     return () => { offFit(); offZoom(); map.remove(); mapRef.current = null; };
   }, [draw, fit, set]);
@@ -153,7 +160,12 @@ export function Stage({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  useEffect(() => { mapRef.current?.resize(); applyCamera(); schedule(); }, [size, applyCamera, schedule]);
+  useEffect(() => {
+    mapRef.current?.resize();
+    if (!userMoved.current && !L.current.camMode) fit(false);
+    applyCamera();
+    schedule();
+  }, [size, scene.ratio, applyCamera, schedule, fit]);
 
   // Countries for region shading (bundled, loaded on demand).
   useEffect(() => { if (scene.look.regions !== 'off' && !countries) void loadCountries().then(setCountries); }, [scene.look.regions, countries]);
@@ -188,7 +200,7 @@ export function Stage({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }
 
   // Refit when switching scenes.
   const sceneId = scene.id;
-  useEffect(() => { if (styleReady) fit(false); }, [sceneId, styleReady, fit]);
+  useEffect(() => { userMoved.current = false; if (styleReady) fit(false); }, [sceneId, styleReady, fit]);
 
   // Pointer interactions layered over MapLibre's own handlers (capture phase).
   useEffect(() => {
@@ -328,7 +340,8 @@ export function Stage({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }
 
   return (
     <div ref={stageRef} className="relative min-h-0 flex-1 overflow-hidden select-none" style={{ background: 'var(--panel-2)' }}>
-      <div ref={mapDivRef} className="absolute inset-0" />
+      {/* Inline position: MapLibre's stylesheet sets .maplibregl-map { position: relative }. */}
+      <div ref={mapDivRef} style={{ position: 'absolute', inset: 0 }} />
       <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 h-full w-full" />
 
       {/* Export frame: everything outside is cropped. */}

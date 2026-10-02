@@ -33,7 +33,7 @@ function RatioPicker() {
         return (
           <button key={r} title={r} onClick={() => update((s) => { s.ratio = r as Ratio; })}
             className={cx('num flex h-[30px] items-center gap-[7px] rounded-[7px] border-0 px-2.5 text-[12px] font-medium', scene.ratio === r ? 'bg-card text-text shadow-[0_1px_3px_rgba(0,0,0,.15)]' : 'bg-transparent text-text-2 hover:text-text')}>
-            <span className="block rounded-[2px] border-[1.5px] border-current" style={{ width: gw, height: gh }} />{r}
+            <span className="block rounded-[2px] border-[1.5px] border-current" style={{ width: gw, height: gh }} /><span className="max-[1180px]:hidden">{r}</span>
           </button>
         );
       })}
@@ -84,7 +84,7 @@ function TopBar({ onExportStep }: { onExportStep: () => void }) {
         <div className="h-5 w-px bg-line" />
         <input value={project.name} onChange={(e) => rename(e.target.value)} aria-label="Project name"
           className="min-w-0 flex-1 truncate border-0 bg-transparent p-0 text-[16px] font-semibold tracking-[-0.015em] text-text outline-none" />
-        <span className="flex items-center gap-1.5 text-[11.5px] whitespace-nowrap text-muted"><span className="h-1.5 w-1.5 rounded-full bg-green" />saved locally</span>
+        <span className="flex items-center gap-1.5 text-[11.5px] whitespace-nowrap text-muted max-[1100px]:hidden"><span className="h-1.5 w-1.5 rounded-full bg-green" />saved locally</span>
       </div>
       <StepNav />
       <div className="flex flex-1 items-center justify-end gap-2.5">

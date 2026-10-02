@@ -23,7 +23,6 @@ __pycache__/
 *.accdb
 *.sqlite
 *.duckdb
-!test/fixtures/**
 /build/
 eval/results/
 *.gpx
@@ -32,3 +31,11 @@ data/
 # Design stuff
 *.zip
 
+# Personal location exports and project files (never commit your travels).
+Timeline*.json
+Records.json
+Semantic Location History/
+*.chilaquil
+
+# Synthetic test fixtures are the only allowed exception (keep this last).
+!test/fixtures/**

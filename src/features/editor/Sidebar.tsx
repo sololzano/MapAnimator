@@ -303,10 +303,10 @@ export function StepNav() {
         const n = (i + 1) as Step, on = step === n;
         return (
           <button key={label} onClick={() => go(n)}
-            className={cx('flex h-[34px] items-center gap-2 rounded-[9px] border-0 pr-3.5 pl-2 text-[13px] whitespace-nowrap', on ? 'bg-card font-semibold text-text shadow-[0_1px_3px_rgba(0,0,0,.15)]' : 'bg-transparent text-text-2 hover:text-text')}>
+            className={cx('flex h-[34px] items-center gap-2 rounded-[9px] border-0 pr-3.5 pl-2 text-[13px] whitespace-nowrap max-[1380px]:pr-2', on ? 'bg-card font-semibold text-text shadow-[0_1px_3px_rgba(0,0,0,.15)]' : 'bg-transparent text-text-2 hover:text-text')}>
             <span className={cx('num grid h-5 w-5 place-items-center rounded-full text-[11px] font-semibold',
               on ? 'bg-accent text-on-accent' : step > n ? 'bg-accent-soft text-text' : 'border border-line-x text-muted')}>{n}</span>
-            {label}
+            <span className={on ? '' : 'max-[1380px]:hidden'}>{label}</span>
           </button>
         );
       })}

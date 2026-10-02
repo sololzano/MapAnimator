@@ -15,7 +15,14 @@ import { attributionText, buildStyle } from '../map/style';
 import { drawOverlay } from './overlay';
 import { SIGN_FONT } from './signs';
 
-export interface ExportProgress { frame: number; frames: number; fraction: number }
+export interface ExportProgress {
+  frame: number;
+  frames: number;
+  fraction: number;
+  /** Average milliseconds per frame spent waiting for the map, compositing and encoding. */
+  ms: { map: number; draw: number; encode: number };
+  codec?: string;
+}
 
 export interface ExportJob {
   scene: Scene;
@@ -97,30 +104,57 @@ export async function exportScene(job: ExportJob): Promise<Blob | null> {
   });
   const out = document.createElement('canvas');
   out.width = W; out.height = H;
-  const ctx = out.getContext('2d', { willReadFrequently: scene.exp.fmt === 'gif' })!;
+  // CPU-backed canvas: the software encoders read pixels from CPU memory, and
+  // handing them a GPU-backed frame forces a slow cross-process readback.
+  const ctx = out.getContext('2d', { willReadFrequently: true, alpha: false })!;
   const attribution = attributionText(scene.look);
 
   try {
     await new Promise<void>((res) => map.once('load', () => res()));
     const zoomShift = Math.log2(W / lw);
+    // Read the map's pixels straight from WebGL. Copying the WebGL canvas with
+    // drawImage() makes Chromium wait on the compositor (~200 ms per frame);
+    // readPixels is a direct GPU→CPU copy (~10 ms at 720p).
+    const gl = map.getCanvas().getContext('webgl2') as WebGL2RenderingContext | null;
+    const px = new Uint8ClampedArray(W * H * 4);
+    const img = new ImageData(px, W, H);
+    const grabMap = async () => {
+      if (gl && gl.drawingBufferWidth === W && gl.drawingBufferHeight === H) {
+        gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, px);
+        const bmp = await createImageBitmap(img, { imageOrientation: 'flipY', premultiplyAlpha: 'none' });
+        ctx.drawImage(bmp, 0, 0);
+        bmp.close();
+      } else {
+        ctx.drawImage(map.getCanvas(), 0, 0, W, H);
+      }
+    };
 
+    const ms = { map: 0, draw: 0, encode: 0 };
+    let codecName: string | undefined;
+    const report = (i: number) => job.onProgress?.({
+      frame: i + 1, frames, fraction: (i + 1) / frames, codec: codecName,
+      ms: { map: ms.map / (i + 1), draw: ms.draw / (i + 1), encode: ms.encode / (i + 1) },
+    });
     const renderFrame = async (i: number) => {
       const t = i / fps;
       const cam = rt.camera.at(t);
+      let t0 = performance.now();
       map.jumpTo({ center: cam.center, zoom: cam.zoom + zoomShift, bearing: cam.bearing, pitch: cam.pitch });
       await waitFor(map, signal);
-      ctx.clearRect(0, 0, W, H);
-      ctx.drawImage(map.getCanvas(), 0, 0, W, H);
+      ms.map += performance.now() - t0;
+      t0 = performance.now();
+      await grabMap();
       drawOverlay({
         ctx, project: (lng, lat) => map.project([lng, lat]), scene, rt, frame: evaluate(scene, rt, t), scale,
         frameRect: { x: 0, y: 0, w: W, h: H }, attribution,
       });
-      job.onProgress?.({ frame: i + 1, frames, fraction: (i + 1) / frames });
+      ms.draw += performance.now() - t0;
     };
 
-    if (scene.exp.fmt === 'gif') return await encodeGif(renderFrame, ctx, W, H, fps, frames, job);
+    if (scene.exp.fmt === 'gif') return await encodeGif(renderFrame, ctx, W, H, fps, frames, report, ms, job.writable);
 
     const codec = await pickCodec(scene, W, H);
+    codecName = codec;
     const target = job.writable ? new StreamTarget(job.writable as unknown as WritableStream) : new BufferTarget();
     const output = new Output({ format: scene.exp.fmt === 'mp4' ? new Mp4OutputFormat({ fastStart: job.writable ? false : 'in-memory' }) : new WebMOutputFormat(), target });
     const source = new CanvasSource(out, { codec, quality: QUALITY_HIGH });
@@ -129,7 +163,10 @@ export async function exportScene(job: ExportJob): Promise<Blob | null> {
     try {
       for (let i = 0; i < frames; i++) {
         await renderFrame(i);
+        const t0 = performance.now();
         await source.add(i / fps, 1 / fps);
+        ms.encode += performance.now() - t0;
+        report(i);
       }
       await output.finalize();
     } catch (e) {
@@ -144,19 +181,25 @@ export async function exportScene(job: ExportJob): Promise<Blob | null> {
   }
 }
 
-async function encodeGif(renderFrame: (i: number) => Promise<void>, ctx: CanvasRenderingContext2D, W: number, H: number, fps: number, frames: number, job: ExportJob): Promise<Blob | null> {
+async function encodeGif(
+  renderFrame: (i: number) => Promise<void>, ctx: CanvasRenderingContext2D, W: number, H: number, fps: number, frames: number,
+  report: (i: number) => void, ms: { encode: number }, writable?: FileSystemWritableFileStream,
+): Promise<Blob | null> {
   const { GIFEncoder, quantize, applyPalette } = await import('gifenc');
   const gif = GIFEncoder();
   const delay = Math.round(1000 / fps);
   for (let i = 0; i < frames; i++) {
     await renderFrame(i);
+    const t0 = performance.now();
     const { data } = ctx.getImageData(0, 0, W, H);
     const palette = quantize(data, 256);
     gif.writeFrame(applyPalette(data, palette), W, H, { palette, delay });
+    ms.encode += performance.now() - t0;
+    report(i);
   }
   gif.finish();
   const blob = new Blob([gif.bytes() as Uint8Array<ArrayBuffer>], { type: 'image/gif' });
-  if (job.writable) { await job.writable.write(blob); await job.writable.close(); return null; }
+  if (writable) { await writable.write(blob); await writable.close(); return null; }
   return blob;
 }
 
