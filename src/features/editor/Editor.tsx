@@ -3,8 +3,6 @@ import { RATIOS, logicalSize, removePoint, type Ratio, type Scene } from '../../
 import { parseGpx, parseTimelineFile, type RouteImport } from '../../importers';
 import type { ParsedTimeline } from '../../importers/timeline';
 import { goProjects } from '../../nav';
-import { downloadBlob } from '../../render/exporter';
-import { projectFileName, projectToFile } from '../../storage/projectFile';
 import { currentScene, useApp, type Step } from '../../state/store';
 import { Button, cx } from '../../ui/controls';
 import { Icon } from '../../ui/icons';
@@ -93,9 +91,7 @@ function TopBar({ onExportStep }: { onExportStep: () => void }) {
         <button title="About ElChilaquilWasHere" aria-label="About ElChilaquilWasHere" onClick={() => setAboutOpen(true)}
           className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-line bg-card hover:bg-panel"><Icon name="info" size={16} /></button>
         <ThemeToggle />
-        <button title="Download project file" aria-label="Download project file" onClick={() => void projectToFile(project).then((b) => downloadBlob(b, projectFileName(project)))}
-          className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-line bg-card hover:bg-panel"><Icon name="download" size={16} /></button>
-        <Button variant="primary" className="h-[34px] px-4" onClick={onExportStep}>Export</Button>
+        <Button variant="primary" className="h-[34px] px-4" onClick={onExportStep}>Export video</Button>
       </div>
       {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
     </header>
