@@ -26,7 +26,7 @@ const EXCUSES = [
 export function SupportModal({ onClose }: { onClose: () => void }) {
   const [excuse, setExcuse] = useState<string | null>(null);
   return (
-    <Modal title="Feed the chilaquil" onClose={onClose} width={520}>
+    <Modal title="Feed El Chilaquil" onClose={onClose} width={520}>
       <p className="m-0 text-[14.5px] leading-[1.6] text-text-2 text-pretty">
         This app is free, has no ads, no account and never phones home, so it can't even guilt-trip you by email. This dialog is the only guilt trip, and you opened it yourself.
       </p>
