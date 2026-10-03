@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { version } from '../../../package.json';
 import { goProjects } from '../../nav';
-import { Button } from '../../ui/controls';
+import { Button, cx, Modal } from '../../ui/controls';
 import { Icon, Logo } from '../../ui/icons';
 import { ThemeToggle } from '../projects/ProjectsPage';
 
@@ -68,6 +68,75 @@ function Point({ icon, title, children }: { icon: string; title: string; childre
   );
 }
 
+const INTRO = 'ElChilaquilWasHere turns a trip into a short map animation. Draw a route by hand, or import a GPX or KML file or your Google Maps Timeline. '
+  + 'Pick a map style, add signs with photos, direct the camera, and export an MP4, WebM or GIF, with your own music if you like.';
+
+/** Everything below the page header: shared by the About page and the editor's About dialog. */
+function AboutContent({ compact = false }: { compact?: boolean }) {
+  const h2 = cx('m-0 font-semibold tracking-[-0.015em]', compact ? 'text-[18px]' : 'text-[22px]');
+  return (
+    <>
+      {compact ? (
+        <section className="flex flex-col items-center gap-2.5 text-center">
+          <Logo size={56} />
+          <div className="text-[22px] font-semibold tracking-[-0.02em]">ElChilaquil<span className="text-accent">WasHere</span></div>
+          <div className="num text-[12.5px] text-muted">Version {version} · MIT licence</div>
+          <p className="m-0 max-w-[560px] text-[14.5px] leading-normal text-text-2 text-pretty">{INTRO}</p>
+        </section>
+      ) : (
+        <section className="flex flex-col gap-3">
+          <div className="eyebrow">About</div>
+          <h1 className="m-0 text-[34px] leading-[1.1] font-semibold tracking-[-0.03em] sm:text-[44px]">Your trips, animated <span className="text-accent">on your own computer.</span></h1>
+          <p className="m-0 max-w-[680px] text-[16px] leading-normal text-text-2 text-pretty">{INTRO}</p>
+        </section>
+      )}
+
+      <section className="flex flex-col gap-4">
+        <h2 className={h2}>Why it exists</h2>
+        <p className="m-0 max-w-[680px] text-[14.5px] leading-[1.6] text-text-2 text-pretty">
+          Most route animation tools want an account, a subscription, or an upload of your location history, and location history is about as personal as data gets.
+          This one runs entirely in your browser instead.
+        </p>
+        <div className={cx('grid gap-3', compact ? 'grid-cols-[repeat(auto-fit,minmax(min(100%,190px),1fr))]' : 'grid-cols-[repeat(auto-fit,minmax(min(100%,240px),1fr))]')}>
+          <Point icon="lock" title="Nothing leaves your device">
+            Projects, photos and music are stored in this browser, and imported files are read here. The only network traffic is map tiles: tile servers see which map areas load, never your route or files.
+          </Point>
+          <Point icon="play" title="Your computer does the work">
+            The map is drawn with WebGL on your GPU and the video is encoded by your browser, so export speed depends on your machine, not on a server queue.
+          </Point>
+          <Point icon="download" title="Free and open source">
+            No account, no watermark, no limits. The code is under the MIT licence, and any project can be downloaded as a file to keep or share.
+          </Point>
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-5">
+        <div className="flex flex-col gap-2">
+          <h2 className={h2}>Credits</h2>
+          <p className="m-0 max-w-[680px] text-[14.5px] leading-[1.6] text-text-2 text-pretty">
+            Built on the work of these open projects and data providers. Map credits are also drawn into the corner of every exported video, as their licences require.
+            Thanks to my friend Claudio for the help in building this freebie. We will keep working on this project for the foreseeable future. 
+          </p>
+        </div>
+        <CreditList title="Map data and imagery" items={MAP_CREDITS} />
+        <div className="flex items-start gap-3 rounded-[14px] bg-panel px-4 py-3.5">
+          <span className="mt-1.5 h-2 w-2 flex-none rounded-full bg-accent" />
+          <p className="m-0 text-[13px] leading-[1.55] text-text-2 text-pretty">
+            <strong className="text-text">Satellite style is non-commercial only.</strong> Sentinel-2 cloudless is licensed CC BY-NC-SA 4.0, so videos made with it can't be used commercially. All other map styles have no such restriction.
+          </p>
+        </div>
+        <CreditList title="Software" items={SOFTWARE_CREDITS} />
+        <CreditList title="Design and tools" items={DESIGN_CREDITS} />
+      </section>
+
+      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5 text-[12.5px] text-muted">
+        {!compact && <span className="num">ElChilaquilWasHere {version} · MIT licence</span>}
+        <span>Full licence texts are in each project's repository.</span>
+      </footer>
+    </>
+  );
+}
+
 export function AboutPage() {
   const scroller = useRef<HTMLDivElement>(null);
   useEffect(() => { scroller.current?.scrollTo(0, 0); }, []);
@@ -84,59 +153,19 @@ export function AboutPage() {
             <ThemeToggle />
           </div>
         </header>
-
-        <section className="flex flex-col gap-3">
-          <div className="eyebrow">About</div>
-          <h1 className="m-0 text-[34px] leading-[1.1] font-semibold tracking-[-0.03em] sm:text-[44px]">Your trips, animated <span className="text-accent">on your own computer.</span></h1>
-          <p className="m-0 max-w-[680px] text-[16px] leading-normal text-text-2 text-pretty">
-            ElChilaquilWasHere turns a trip into a short map animation. Draw a route by hand, or import a GPX or KML file or your Google Maps Timeline.
-            Pick a map style, add signs with photos, direct the camera, and export an MP4, WebM or GIF, with your own music if you like.
-          </p>
-        </section>
-
-        <section className="flex flex-col gap-4">
-          <h2 className="m-0 text-[22px] font-semibold tracking-[-0.015em]">Why it exists</h2>
-          <p className="m-0 max-w-[680px] text-[14.5px] leading-[1.6] text-text-2 text-pretty">
-            Most route animation tools want an account, a subscription, or an upload of your location history, and location history is about as personal as data gets.
-            This one runs entirely in your browser instead.
-          </p>
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,240px),1fr))] gap-3">
-            <Point icon="lock" title="Nothing leaves your device">
-              Projects, photos and music are stored in this browser, and imported files are read here. The only network traffic is map tiles: tile servers see which map areas load, never your route or files.
-            </Point>
-            <Point icon="play" title="Your computer does the work">
-              The map is drawn with WebGL on your GPU and the video is encoded by your browser, so export speed depends on your machine, not on a server queue.
-            </Point>
-            <Point icon="download" title="Free and open source">
-              No account, no watermark, no limits. The code is under the MIT licence, and any project can be downloaded as a file to keep or share.
-            </Point>
-          </div>
-        </section>
-
-        <section className="flex flex-col gap-5">
-          <div className="flex flex-col gap-2">
-            <h2 className="m-0 text-[22px] font-semibold tracking-[-0.015em]">Credits</h2>
-            <p className="m-0 max-w-[680px] text-[14.5px] leading-[1.6] text-text-2 text-pretty">
-              Built on the work of these open projects and data providers. Map credits are also drawn into the corner of every exported video, as their licences require.
-              Thanks to my friend Claudio for the help in building this freebie. We will keep working on this project for the foreseeable future. 
-            </p>
-          </div>
-          <CreditList title="Map data and imagery" items={MAP_CREDITS} />
-          <div className="flex items-start gap-3 rounded-[14px] bg-panel px-4 py-3.5">
-            <span className="mt-1.5 h-2 w-2 flex-none rounded-full bg-accent" />
-            <p className="m-0 text-[13px] leading-[1.55] text-text-2 text-pretty">
-              <strong className="text-text">Satellite style is non-commercial only.</strong> Sentinel-2 cloudless is licensed CC BY-NC-SA 4.0, so videos made with it can't be used commercially. All other map styles have no such restriction.
-            </p>
-          </div>
-          <CreditList title="Software" items={SOFTWARE_CREDITS} />
-          <CreditList title="Design and tools" items={DESIGN_CREDITS} />
-        </section>
-
-        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5 text-[12.5px] text-muted">
-          <span className="num">ElChilaquilWasHere {version} · MIT licence</span>
-          <span>Full licence texts are in each project's repository.</span>
-        </footer>
+        <AboutContent />
       </div>
     </div>
+  );
+}
+
+/** Desktop-style About box for the editor, so the open project stays open. */
+export function AboutDialog({ onClose }: { onClose: () => void }) {
+  return (
+    <Modal title="About" onClose={onClose} width={720}>
+      <div className="flex flex-col gap-8">
+        <AboutContent compact />
+      </div>
+    </Modal>
   );
 }

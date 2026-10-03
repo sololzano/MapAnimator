@@ -8,6 +8,7 @@ import { projectFileName, projectToFile } from '../../storage/projectFile';
 import { currentScene, useApp, type Step } from '../../state/store';
 import { Button, cx } from '../../ui/controls';
 import { Icon } from '../../ui/icons';
+import { AboutDialog } from '../about/AboutPage';
 import { ThemeToggle } from '../projects/ProjectsPage';
 import { stageBus } from './bus';
 import { ExportModal, chooseTargets } from './ExportModal';
@@ -77,6 +78,7 @@ function SceneBar() {
 function TopBar({ onExportStep }: { onExportStep: () => void }) {
   const project = useApp((s) => s.project!);
   const rename = useApp((s) => s.renameProject);
+  const [aboutOpen, setAboutOpen] = useState(false);
   return (
     <header className="editor-topbar flex min-h-[56px] flex-none items-center gap-3 border-b border-line px-3.5 py-2">
       <div className="flex min-w-0 flex-1 items-center gap-2.5">
@@ -88,11 +90,14 @@ function TopBar({ onExportStep }: { onExportStep: () => void }) {
       </div>
       <div className="editor-actions flex items-center justify-end gap-2">
         <RatioPicker />
+        <button title="About ElChilaquilWasHere" aria-label="About ElChilaquilWasHere" onClick={() => setAboutOpen(true)}
+          className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-line bg-card hover:bg-panel"><Icon name="info" size={16} /></button>
         <ThemeToggle />
         <button title="Download project file" aria-label="Download project file" onClick={() => void projectToFile(project).then((b) => downloadBlob(b, projectFileName(project)))}
           className="grid h-[34px] w-[34px] place-items-center rounded-lg border border-line bg-card hover:bg-panel"><Icon name="download" size={16} /></button>
         <Button variant="primary" className="h-[34px] px-4" onClick={onExportStep}>Export</Button>
       </div>
+      {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
     </header>
   );
 }
