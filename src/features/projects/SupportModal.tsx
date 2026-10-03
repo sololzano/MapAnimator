@@ -49,7 +49,7 @@ export function SupportModal({ onClose }: { onClose: () => void }) {
       </div>
 
       <p className="m-0 text-[14.5px] leading-[1.6] text-text-2 text-pretty">
-        There is no payment button. There was never going to be a payment button. If it turned your trip into a video your family actually watched to the end, star the repo, share your video, or tell a friend. Chilaquiles are optional, but recommended.
+        There is no payment button (or maybe there is one?). There was never going to be a payment button. If it turned your trip into a video your family actually watched to the end, star the repo, share your video, or tell a friend. Chilaquiles are optional, but recommended.
       </p>
 
       {excuse && <div role="status" className="rounded-xl bg-panel px-4 py-3 text-[13.5px] text-text-2">{excuse}</div>}
