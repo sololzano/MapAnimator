@@ -559,7 +559,7 @@ is the riskiest part, then widen each step.
 
 ---
 
-## 14. Decisions I've made by default (change any of them)
+## 14. Decisions or changes to the plan
 
 1. **React + TS + Vite** for the UI (Svelte would also work; React wins on editor
    ecosystem and contributor familiarity).
@@ -569,10 +569,10 @@ is the riskiest part, then widen each step.
 3. **Online place search off by default** (opt-in Photon), with auto labels from local
    tile data instead.
 4. **Chromium-first**, Firefox/Safari supported with graceful degradation.
-5. **MIT license.**
+5. **MIT license.**, because why not?
 6. **Music track** support in export (local file only), planned for M8.
 7. The reference screenshot's right inspector is **folded into the left sidebar**, keeping
-   the layout you specified (left / center / top / bottom).
+   the layout from previous software (left / center / top / bottom).
 
 ---
 
