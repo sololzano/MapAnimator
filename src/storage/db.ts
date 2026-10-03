@@ -7,9 +7,11 @@ export interface Asset {
   id: string;
   projectId: string;
   blob: Blob;
+  /** Pixel size for photos (0 for audio). */
   w: number;
   h: number;
   createdAt: number;
+  kind?: 'photo' | 'audio';
 }
 
 class Db extends Dexie {
@@ -50,7 +52,10 @@ export async function getAsset(id: string): Promise<Asset | undefined> {
 /** Photo ids referenced by a project's signs. */
 export function referencedAssets(p: Project): Set<string> {
   const ids = new Set<string>();
-  for (const s of p.scenes) for (const g of s.signs) if (g.photo) ids.add(g.photo);
+  for (const s of p.scenes) {
+    for (const g of s.signs) if (g.photo) ids.add(g.photo);
+    if (s.exp.music) ids.add(s.exp.music.asset);
+  }
   return ids;
 }
 

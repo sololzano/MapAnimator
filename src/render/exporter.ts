@@ -5,14 +5,15 @@
 // ever captured half-loaded, and nothing leaves the machine.
 import { Map as MlMap } from 'maplibre-gl';
 import {
-  BufferTarget, CanvasSource, Mp4OutputFormat, Output, QUALITY_HIGH, StreamTarget, WebMOutputFormat, canEncodeVideo,
-  type VideoCodec,
+  AudioBufferSource, BufferTarget, CanvasSource, Mp4OutputFormat, Output, QUALITY_HIGH, StreamTarget, WebMOutputFormat, canEncodeAudio, canEncodeVideo,
+  type AudioCodec, type VideoCodec,
 } from 'mediabunny';
-import { logicalSize, outputSize, type Scene } from '../core/model';
+import { BLUR, logicalSize, outputSize, type Scene } from '../core/model';
 import { evaluate, runtime } from '../core/runtime';
 import { loadCountries, visitedCountries } from '../map/countries';
 import { attributionText, buildStyle } from '../map/style';
 import { drawOverlay } from './overlay';
+import { renderSoundtrack } from './audio';
 import { preloadPhotos } from './photos';
 import { SIGN_FONT } from './signs';
 
@@ -77,6 +78,16 @@ export function exportFps(scene: Scene): number {
   return scene.exp.fmt === 'gif' ? Math.min(15, scene.exp.fps) : scene.exp.fps;
 }
 
+/** AAC for MP4 (WASM encoder when the browser has none, so it plays everywhere); Opus for WebM. */
+async function pickAudioCodec(fmt: Scene['exp']['fmt']): Promise<AudioCodec> {
+  if (fmt === 'webm') return 'opus';
+  if (!(await canEncodeAudio('aac', { numberOfChannels: 2, sampleRate: 48000 }))) {
+    const { registerAacEncoder } = await import('@mediabunny/aac-encoder');
+    registerAacEncoder();
+  }
+  return 'aac';
+}
+
 async function pickCodec(scene: Scene, w: number, h: number): Promise<VideoCodec> {
   const prefs: VideoCodec[] = scene.exp.fmt === 'mp4' ? ['avc', 'hevc', 'av1'] : ['vp9', 'av1', 'vp8'];
   for (const c of prefs) {
@@ -124,6 +135,11 @@ export async function exportScene(job: ExportJob): Promise<Blob | null> {
   // handing them a GPU-backed frame forces a slow cross-process readback.
   const ctx = out.getContext('2d', { willReadFrequently: true, alpha: false })!;
   const attribution = attributionText(scene.look);
+  // Motion blur: average several sub-frames into an accumulation canvas, which is what gets encoded.
+  const blur = BLUR[scene.exp.blur ?? 'off'];
+  const acc = blur.samples > 1 ? document.createElement('canvas') : out;
+  if (acc !== out) { acc.width = W; acc.height = H; }
+  const actx = acc === out ? ctx : acc.getContext('2d', { willReadFrequently: true, alpha: false })!;
 
   try {
     job.onStatus?.('Loading the map…');
@@ -154,8 +170,8 @@ export async function exportScene(job: ExportJob): Promise<Blob | null> {
       frame: i + 1, frames, fraction: (i + 1) / frames, codec: codecName,
       ms: { map: ms.map / (i + 1), draw: ms.draw / (i + 1), encode: ms.encode / (i + 1) },
     });
-    const renderFrame = async (i: number) => {
-      const t = i / fps;
+    /** Render the scene at time t into `out` (map + overlay). */
+    const renderAt = async (t: number) => {
       const cam = rt.camera.at(t);
       let t0 = performance.now();
       map.jumpTo({ center: cam.center, zoom: cam.zoom + zoomShift, bearing: cam.bearing, pitch: cam.pitch });
@@ -172,17 +188,42 @@ export async function exportScene(job: ExportJob): Promise<Blob | null> {
       });
       ms.draw += performance.now() - t0;
     };
+    const renderFrame = async (i: number) => {
+      if (blur.samples === 1) return renderAt(i / fps);
+      // Sub-frames spread over the shutter interval, centred on the frame time; running mean.
+      for (let j = 0; j < blur.samples; j++) {
+        const t = Math.max(0, Math.min(rt.tm.T, (i + ((j + 0.5) / blur.samples - 0.5) * blur.shutter) / fps));
+        await renderAt(t);
+        actx.globalAlpha = 1 / (j + 1);
+        actx.drawImage(out, 0, 0);
+      }
+      actx.globalAlpha = 1;
+    };
 
-    if (scene.exp.fmt === 'gif') return await encodeGif(renderFrame, ctx, W, H, fps, frames, report, ms, job.writable);
+    if (scene.exp.fmt === 'gif') return await encodeGif(renderFrame, actx, W, H, fps, frames, report, ms, job.writable);
 
     const codec = await pickCodec(scene, W, H);
     codecName = codec;
     const target = job.writable ? new StreamTarget(job.writable as unknown as WritableStream) : new BufferTarget();
     const output = new Output({ format: scene.exp.fmt === 'mp4' ? new Mp4OutputFormat({ fastStart: job.writable ? false : 'in-memory' }) : new WebMOutputFormat(), target });
-    const source = new CanvasSource(out, { codec, quality: QUALITY_HIGH });
+    const source = new CanvasSource(acc, { codec, quality: QUALITY_HIGH });
     output.addVideoTrack(source, { frameRate: fps });
+    // Soundtrack: the same offline mix the preview plays, trimmed to the video length.
+    const music = scene.exp.music;
+    let audio: { source: AudioBufferSource; buffer: AudioBuffer } | null = null;
+    if (music) {
+      job.onStatus?.('Mixing the soundtrack…');
+      const buffer = await renderSoundtrack(music, frames / fps);
+      if (buffer) {
+        const audioCodec = await pickAudioCodec(scene.exp.fmt);
+        const src = new AudioBufferSource({ codec: audioCodec, quality: QUALITY_HIGH });
+        output.addAudioTrack(src);
+        audio = { source: src, buffer };
+      }
+    }
     await output.start();
     try {
+      if (audio) { await audio.source.add(audio.buffer); audio.source.close(); }
       for (let i = 0; i < frames; i++) {
         await renderFrame(i);
         const t0 = performance.now();

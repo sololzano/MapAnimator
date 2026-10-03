@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { runtime } from '../../core/runtime';
 import { formatTime } from '../../core/timing';
-import type { Pace, Scene } from '../../core/model';
+import type { MusicSettings, Pace, Scene } from '../../core/model';
+import { SoundtrackPlayer, songPeaks } from '../../render/audio';
 import { currentScene, useApp } from '../../state/store';
 import { Button, Modal, Segmented, Slider } from '../../ui/controls';
 import { Icon } from '../../ui/icons';
@@ -27,6 +28,21 @@ export function usePlayback() {
     id = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(id);
   }, [playing]);
+}
+
+/** Plays the scene's soundtrack in step with preview playback. */
+export function useSoundtrack() {
+  const playing = useApp((s) => s.playing);
+  const music = useApp((s) => currentScene(s)?.exp.music ?? null);
+  const T = useApp((s) => { const sc = currentScene(s); return sc && sc.points.length > 1 ? runtime(sc).tm.T : 0; });
+  const player = useRef<SoundtrackPlayer | null>(null);
+  useEffect(() => {
+    player.current ??= new SoundtrackPlayer();
+    const pl = player.current;
+    if (!playing || !music || !T) { pl.stop(); return; }
+    void pl.play(music, T, () => Math.max(0, useApp.getState().tm));
+    return () => pl.stop();
+  }, [playing, music, T]);
 }
 
 export function togglePlay() {
@@ -114,7 +130,7 @@ export function Timeline() {
     : `Follow line · ${cam.orient === 'heading' ? 'heading up' : 'north up'} · ×${(2 ** cam.zoom).toFixed(1)}`;
 
   return (
-    <div className="editor-timeline flex h-[clamp(150px,26vh,216px)] flex-none flex-col border-t border-line bg-bg">
+    <div className={'editor-timeline flex flex-none flex-col border-t border-line bg-bg ' + (scene.exp.music ? 'h-[clamp(180px,30vh,256px)]' : 'h-[clamp(150px,26vh,216px)]')}>
       <div className="timeline-toolbar flex h-[48px] flex-none items-center gap-2 border-b border-line px-3.5">
         <button title="Back to start" aria-label="Back to start" disabled={scene.points.length < 2} onClick={() => set({ tm: 0, playing: false })} className="grid h-8 w-8 flex-none place-items-center rounded-lg border border-line bg-card p-0 hover:bg-panel disabled:opacity-40">
           <Icon name="rewind" size={14} strokeWidth={2} />
@@ -151,7 +167,7 @@ export function Timeline() {
             <div key={k.id} className="absolute top-1/2 -mt-1.5 -ml-1.5 h-[13px] w-[13px] rotate-45 border-2 border-bg bg-blue-ink shadow-[0_0_0_1px_var(--blue-ink)]" style={{ left: pct(rt.tm.timeAtP(k.p)) }} />
           ))}
         </Track>
-        <Track label="Signs" color="var(--green)" last>
+        <Track label="Signs" color="var(--green)" last={!scene.exp.music}>
           {scene.signs.map((g) => {
             const a = rt.tm.timeAtP(rt.tm.signP.get(g.id) ?? 0), d = g.trigger === 'pause' ? g.pause : 0;
             return (
@@ -160,6 +176,11 @@ export function Timeline() {
             );
           })}
         </Track>
+        {scene.exp.music && (
+          <Track label="Music" color="var(--peach)" last>
+            <MusicWave music={scene.exp.music} T={T} />
+          </Track>
+        )}
         <Playhead T={T} />
       </div>}
     </div>
@@ -191,6 +212,48 @@ function MotionBar() {
         <Button variant="primary" className="h-10 self-end px-6" onClick={() => setOpen(false)}>Done</Button>
       </Modal>}
     </>
+  );
+}
+
+/** Waveform of the part of the song that plays under the video, shaped by volume and fades. */
+function MusicWave({ music, T }: { music: MusicSettings; T: number }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const [peaks, setPeaks] = useState<Float32Array | null>(null);
+  const [w, setW] = useState(0);
+  useEffect(() => { let live = true; void songPeaks(music.asset).then((p) => { if (live) setPeaks(p); }); return () => { live = false; }; }, [music.asset]);
+  useEffect(() => {
+    const el = ref.current!;
+    const ro = new ResizeObserver(() => setW(el.clientWidth));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  useEffect(() => {
+    const cv = ref.current;
+    if (!cv || !w) return;
+    const dpr = window.devicePixelRatio || 1, h = cv.clientHeight;
+    cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+    const ctx = cv.getContext('2d')!;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    const cs = getComputedStyle(cv);
+    ctx.fillStyle = cs.getPropertyValue('--peach').trim() || '#fe640b';
+    const bar = 3, mid = h / 2;
+    for (let x = 0; x < w; x += bar) {
+      const t = ((x + bar / 2) / w) * T, songT = music.offset + t;
+      if (songT >= music.duration) break;
+      const fi = music.fadeIn > 0 ? Math.min(1, t / music.fadeIn) : 1, fo = music.fadeOut > 0 ? Math.min(1, (T - t) / music.fadeOut) : 1;
+      const g = music.volume * Math.max(0, Math.min(fi, fo));
+      const amp = peaks ? peaks[Math.min(peaks.length - 1, Math.floor((songT / music.duration) * peaks.length))] : 0.15;
+      const hh = Math.max(1, amp * g * (h - 2));
+      ctx.globalAlpha = 0.75;
+      ctx.fillRect(x, mid - hh / 2, bar - 1, hh);
+    }
+  }, [peaks, w, music, T]);
+  return (
+    <div className="absolute inset-0 flex items-center overflow-hidden rounded-[5px] bg-panel" title={`${music.name} · from ${Math.floor(music.offset / 60)}:${String(Math.floor(music.offset % 60)).padStart(2, '0')}`}>
+      <canvas ref={ref} className="h-full w-full" />
+      <span className="pointer-events-none absolute left-2 max-w-[60%] truncate rounded bg-bg/80 px-1.5 text-[11px] font-semibold">{music.name}</span>
+    </div>
   );
 }
 

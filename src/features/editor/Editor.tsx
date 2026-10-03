@@ -15,7 +15,7 @@ import { GpxImportModal, TimelineImportModal, type ImportResult } from './Import
 import { pendingImport } from './pending';
 import { Sidebar, StepNav } from './Sidebar';
 import { Stage } from './Stage';
-import { Timeline, togglePlay, usePlayback } from './Timeline';
+import { Timeline, togglePlay, usePlayback, useSoundtrack } from './Timeline';
 
 type ImportState =
   | { kind: 'gpx'; data: RouteImport; name: string }
@@ -107,6 +107,7 @@ export function Editor() {
   const [exp, setExp] = useState<{ scenes: Scene[]; next: () => Promise<FileSystemWritableFileStream | undefined> } | null>(null);
   const acceptRef = useRef('.gpx');
   usePlayback();
+  useSoundtrack();
 
   const goStep = (n: Step) => set({ step: n, playing: false, tm: n >= 4 ? 0 : -1, sel: -1, selSign: null });
 

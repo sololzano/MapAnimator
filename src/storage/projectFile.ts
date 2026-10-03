@@ -3,6 +3,7 @@
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { z } from 'zod';
 import { SCHEMA_VERSION, makeScene, normalizeProject, rid, signPointIndex, type Project, type Sign } from '../core/model';
+import { MUSIC_MAX_BYTES } from '../render/audio';
 import { getAsset, referencedAssets, type Asset } from './db';
 
 export const PROJECT_EXT = '.chilaquil';
@@ -36,12 +37,33 @@ export async function projectToFile(p: Project): Promise<Blob> {
   };
   for (const id of referencedAssets(p)) {
     const a = await getAsset(id);
-    if (a) files[`assets/${id}.jpg`] = [new Uint8Array(await a.blob.arrayBuffer()), { level: 0 }];
+    if (a) files[`assets/${id}.${a.kind === 'audio' ? 'audio' : 'jpg'}`] = [new Uint8Array(await a.blob.arrayBuffer()), { level: 0 }];
   }
   return new Blob([zipSync(files, { level: 6 }) as Uint8Array<ArrayBuffer>], { type: 'application/zip' });
 }
 
 const MAX_ASSET_BYTES = 15 * 1024 * 1024;
+
+/** MP3 (ID3 or frame sync), MP4/M4A (ftyp), Ogg, WAV, FLAC, WebM/Matroska. */
+const isAudio = (b: Uint8Array) =>
+  (b[0] === 0x49 && b[1] === 0x44 && b[2] === 0x33) || (b[0] === 0xff && (b[1] & 0xe0) === 0xe0) ||
+  (b[4] === 0x66 && b[5] === 0x74 && b[6] === 0x79 && b[7] === 0x70) ||
+  (b[0] === 0x4f && b[1] === 0x67 && b[2] === 0x67 && b[3] === 0x53) ||
+  (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x41) ||
+  (b[0] === 0x66 && b[1] === 0x4c && b[2] === 0x61 && b[3] === 0x43) ||
+  (b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3);
+
+const musicSchema = z.object({
+  asset: z.string().max(64), name: z.string().max(200), duration: num, volume: num, offset: num, fadeIn: num, fadeOut: num,
+});
+
+/** Validated soundtrack with its asset re-linked; null when absent or its audio isn't in the file. */
+function musicOf(exp: unknown, ids: Map<string, string>) {
+  const r = musicSchema.safeParse((exp as { music?: unknown } | undefined)?.music);
+  if (!r.success) return null;
+  const asset = ids.get(r.data.asset);
+  return asset ? { ...r.data, asset, volume: Math.max(0, Math.min(1, r.data.volume)) } : null;
+}
 const isImage = (b: Uint8Array) =>
   (b[0] === 0xff && b[1] === 0xd8) || // JPEG
   (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) || // PNG
@@ -75,17 +97,24 @@ function kfsOf(cam: unknown) {
 export async function projectFromFile(file: File): Promise<{ project: Project; assets: Asset[] }> {
   const buf = new Uint8Array(await file.arrayBuffer());
   let json: unknown;
-  const photoIds = new Map<string, string>();
-  const pendingAssets: { id: string; blob: Blob }[] = [];
+  const photoIds = new Map<string, string>(), audioIds = new Map<string, string>();
+  const pendingAssets: { id: string; blob: Blob }[] = [], audioAssets: { id: string; blob: Blob }[] = [];
   if (buf[0] === 0x50 && buf[1] === 0x4b) {
-    const files = unzipSync(buf, { filter: (f) => f.name === 'project.json' || (/^assets\/[\w-]{1,64}\.jpg$/.test(f.name) && f.originalSize <= MAX_ASSET_BYTES) });
+    const files = unzipSync(buf, {
+      filter: (f) => f.name === 'project.json'
+        || (/^assets\/[\w-]{1,64}\.jpg$/.test(f.name) && f.originalSize <= MAX_ASSET_BYTES)
+        || (/^assets\/[\w-]{1,64}\.audio$/.test(f.name) && f.originalSize <= MUSIC_MAX_BYTES),
+    });
     if (!files['project.json']) throw new Error('That file has no project inside.');
     json = JSON.parse(strFromU8(files['project.json']));
     for (const [name, data] of Object.entries(files)) {
-      if (!name.startsWith('assets/') || !isImage(data)) continue;
+      if (!name.startsWith('assets/')) continue;
+      const audio = name.endsWith('.audio');
+      if (audio ? !isAudio(data) : !isImage(data)) continue;
       const id = rid('a');
-      photoIds.set(name.slice(7, -4), id);
-      pendingAssets.push({ id, blob: new Blob([data as Uint8Array<ArrayBuffer>], { type: 'image/jpeg' }) });
+      (audio ? audioIds : photoIds).set(name.slice(7, name.lastIndexOf('.')), id);
+      if (audio) audioAssets.push({ id, blob: new Blob([data as Uint8Array<ArrayBuffer>]) });
+      else pendingAssets.push({ id, blob: new Blob([data as Uint8Array<ArrayBuffer>], { type: 'image/jpeg' }) });
     }
   } else {
     json = JSON.parse(strFromU8(buf));
@@ -101,6 +130,7 @@ export async function projectFromFile(file: File): Promise<{ project: Project; a
     if (size) assets.push({ id: a.id, projectId, blob: a.blob, w: size[0], h: size[1], createdAt: now });
     else for (const [k, v] of photoIds) if (v === a.id) photoIds.delete(k);
   }
+  for (const a of audioAssets) assets.push({ id: a.id, projectId, blob: a.blob, w: 0, h: 0, createdAt: now, kind: 'audio' });
   const project = normalizeProject({
     schemaVersion: SCHEMA_VERSION, id: projectId, name: parsed.data.name, createdAt: now, updatedAt: now,
     scenes: parsed.data.scenes.map((s) => {
@@ -119,7 +149,7 @@ export async function projectFromFile(file: File): Promise<{ project: Project; a
         look: { ...base.look, ...(s.look as object) },
         hud: { ...base.hud, ...s.hud },
         cam: { ...base.cam, ...(s.cam as object), kfs: kfsOf(s.cam), view: viewOf(s.cam) },
-        exp: { ...base.exp, ...(s.exp as object) },
+        exp: { ...base.exp, ...(s.exp as object), music: musicOf(s.exp, audioIds) },
       };
     }),
   });

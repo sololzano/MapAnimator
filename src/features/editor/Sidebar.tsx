@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { TRAVEL_MODES, legMode, makeSign, outputSize, removePoint, rid, signPointIndex, type Scene, type SignStyle, type TipKind, type TravelMode } from '../../core/model';
+import { BLUR, TRAVEL_MODES, legMode, makeSign, outputSize, removePoint, rid, signPointIndex, type Scene, type SignStyle, type TipKind, type TravelMode } from '../../core/model';
 import { ModeIcon } from '../../ui/ModeIcon';
 import { importPhoto } from '../../render/photos';
+import { importMusic } from '../../render/audio';
 import { getAsset } from '../../storage/db';
 import { runtime } from '../../core/runtime';
 import { formatTime } from '../../core/timing';
@@ -493,7 +494,9 @@ function ExportPanel({ onExport }: { onExport: (all: boolean) => void }) {
   // Rough size estimate at "high" quality.
   const mb = ex.fmt === 'gif' ? (w * h * fps * T) / 2.2e6 : ((fw * fh * fps) / (1920 * 1080 * 30)) * 8 * T / 8 * (ex.fmt === 'webm' ? 0.8 : 1);
   const summary: [string, string][] = [
-    ['Duration', `${T.toFixed(1)} s`], ['Output', `${w}×${h}`], ['Frames', String(Math.ceil(T * fps))], ['Est. size', `${mb.toFixed(1)} MB`],
+    ['Duration', `${T.toFixed(1)} s`], ['Output', `${w}×${h}`],
+    ['Frames', `${Math.ceil(T * fps)}${ex.blur !== 'off' ? ` ×${BLUR[ex.blur].samples}` : ''}`],
+    ['Est. size', `${(mb + (ex.music && ex.fmt !== 'gif' ? (T * 160) / 8 / 1024 : 0)).toFixed(1)} MB`],
   ];
   return (
     <>
@@ -501,8 +504,11 @@ function ExportPanel({ onExport }: { onExport: (all: boolean) => void }) {
         <Segmented label="Resolution" value={ex.res} options={[['720p', '720p'], ['1080p', '1080p'], ['1440p', '1440p'], ['4K', '4K']]} onChange={setE('res')} />
         <Segmented label="Frame rate" value={ex.fps} options={[[24, '24'], [30, '30'], [60, '60']]} onChange={setE('fps')} />
         <Segmented label="Format" value={ex.fmt} options={[['mp4', 'MP4'], ['webm', 'WebM'], ['gif', 'GIF']]} onChange={setE('fmt')} />
-        {ex.fmt === 'gif' && <Info>GIFs are capped at 540p and 15 fps to keep files reasonable.</Info>}
+        {ex.fmt === 'gif' && <Info>GIFs are capped at 540p and 15 fps to keep files reasonable, and have no sound.</Info>}
+        <Segmented label="Motion blur" value={ex.blur} options={[['off', 'Off'], ['soft', 'Soft'], ['strong', 'Strong']]} onChange={setE('blur')} />
+        {ex.blur !== 'off' && <Info>Blends {BLUR[ex.blur].samples} sub-frames into every frame, like a film camera's shutter, so fast moves look smooth. Export takes about {BLUR[ex.blur].samples}× longer; the preview doesn't show it.</Info>}
       </Group>
+      <MusicGroup />
       <div className="flex flex-col gap-3.5 border-t border-line px-5 pt-4 pb-6">
         <div className="grid grid-cols-2 gap-2">
           {summary.map(([k, v]) => (
@@ -521,6 +527,60 @@ function ExportPanel({ onExport }: { onExport: (all: boolean) => void }) {
         <div className="text-[12px] leading-normal text-muted">Rendered in your browser with your GPU. Nothing is uploaded. Keep this tab visible while exporting.</div>
       </div>
     </>
+  );
+}
+
+function fmtClock(sec: number): string {
+  const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+/** Soundtrack: pick a local audio file, then volume, start point and fades. */
+function MusicGroup() {
+  const [scene, update] = useScene();
+  const projectId = useApp((s) => s.project?.id ?? '');
+  const say = useApp((s) => s.say);
+  const input = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const m = scene.exp.music;
+  const T = runtime(scene).tm.T;
+  const setM = <K extends keyof NonNullable<Scene['exp']['music']>>(k: K) => (v: NonNullable<Scene['exp']['music']>[K]) =>
+    update((s) => { if (s.exp.music) s.exp.music[k] = v; }, 'music-' + String(k));
+  const pick = async (f?: File) => {
+    if (!f) return;
+    setBusy(true);
+    try { const music = await importMusic(f, projectId); update((s) => { s.exp.music = music; }); } catch (e) { say(e instanceof Error ? e.message : 'Could not read that audio file'); }
+    setBusy(false);
+  };
+  const silentTail = m ? T - (m.duration - m.offset) : 0;
+  return (
+    <Group title="Music">
+      <input ref={input} type="file" accept="audio/*,.mp3,.m4a,.aac,.ogg,.oga,.opus,.wav,.flac" className="hidden" onChange={(e) => { void pick(e.target.files?.[0]); e.target.value = ''; }} />
+      {!m ? (
+        <>
+          <Button className="h-[38px] border-dashed" disabled={busy} onClick={() => input.current?.click()}>{busy ? 'Reading audio…' : '+ Add a soundtrack'}</Button>
+          <Info>Pick a song from your computer. It stays on this device and is mixed into the video when you export. Make sure you have the right to use it if you publish the video.</Info>
+        </>
+      ) : (
+        <>
+          <div className="flex items-center gap-3 rounded-[10px] border border-line bg-card px-3 py-2.5">
+            <Icon name="music" size={18} className="flex-none text-accent" />
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[13.5px] font-semibold">{m.name}</div>
+              <div className="num text-[11.5px] text-muted" title="Plays along with Preview">{fmtClock(m.duration)}</div>
+            </div>
+            <button className="border-0 bg-transparent p-0 text-[12px] text-accent hover:underline" onClick={() => input.current?.click()}>{busy ? '…' : 'Replace'}</button>
+            <button className="border-0 bg-transparent p-0 text-[12px] text-red hover:underline" onClick={() => update((s) => { s.exp.music = null; })}>Remove</button>
+          </div>
+          <Slider label="Volume" value={Math.round(m.volume * 100)} min={0} max={100} step={5} format={(v) => v + '%'} onChange={(v) => setM('volume')(v / 100)} />
+          <Slider label="Start the song at" value={m.offset} min={0} max={Math.max(0, Math.floor(m.duration - 1))} step={0.5} format={fmtClock} onChange={setM('offset')} />
+          <Slider label="Fade in" value={m.fadeIn} min={0} max={5} step={0.5} format={(v) => v + ' s'} onChange={setM('fadeIn')} />
+          <Slider label="Fade out" value={m.fadeOut} min={0} max={10} step={0.5} format={(v) => v + ' s'} onChange={setM('fadeOut')} />
+          {silentTail > 0.5 && <Info>The song ends {silentTail.toFixed(1)} s before the video does; the rest is silent. Start it earlier or slow the pace to fit.</Info>}
+          {scene.exp.fmt === 'gif' && <Info>GIFs can't carry sound. Choose MP4 or WebM to include the music.</Info>}
+        </>
+      )}
+    </Group>
   );
 }
 

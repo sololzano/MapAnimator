@@ -135,7 +135,7 @@ input[type="range"] { accent-color: var(--accent); width: 100%; margin: 0; }
   .editor-body { flex: none; flex-direction: column; }
   .editor-preview { order: -1; flex: none; }
   .map-stage { flex: none; height: clamp(330px, 52dvh, 500px); }
-  .frame-caption { top: 100%; bottom: auto; left: 12px; margin-top: 8px; font-size: 10px; }
+  .frame-caption { top: 100%; bottom: auto; left: 12px; right: auto; margin-top: 8px; font-size: 10px; }
   .editor-timeline { height: 160px; }
   .editor-sidebar { width: 100%; border-right: 0; border-top: 1px solid var(--line); }
   .sidebar-content { overflow: visible; flex: none; }

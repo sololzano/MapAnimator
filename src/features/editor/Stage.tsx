@@ -194,6 +194,8 @@ export function Stage() {
     map.on('load', () => { setStyleReady(true); fit(false); });
     map.on('style.load', () => setStyleReady(true));
     map.on('error', () => setMapError(true));
+    // A transient tile failure shouldn't leave the banner up once everything has loaded.
+    map.on('idle', () => { if (map.areTilesLoaded()) setMapError(false); });
     const touched = (e: { originalEvent?: unknown }) => { if (e.originalEvent) userMoved.current = true; };
     map.on('dragstart', touched);
     map.on('zoomstart', touched);
@@ -443,7 +445,7 @@ export function Stage() {
 
       {/* Export frame: everything outside is cropped. */}
       <div className="pointer-events-none absolute rounded-[3px] border-2 border-[#eff1f5]" style={{ left: frame.x, top: frame.y, width: frame.w, height: frame.h, boxShadow: '0 0 0 4000px rgba(35,38,52,.5)' }}>
-        <div className="frame-caption num absolute bottom-full left-[-2px] mb-2 flex items-center gap-1 rounded-md bg-[rgba(35,38,52,.8)] px-[9px] py-1 text-[11px] font-medium whitespace-nowrap text-[#eff1f5]">
+        <div className="frame-caption num absolute bottom-full right-[-2px] mb-2 flex items-center gap-1 rounded-md bg-[rgba(35,38,52,.8)] px-[9px] py-1 text-[11px] font-medium whitespace-nowrap text-[#eff1f5]">
           {scene.ratio} · {ow}×{oh} · {exportFps(scene)} fps <span className="max-[760px]:hidden">· {camMode ? 'camera view' : 'outside is cropped'}</span>
         </div>
       </div>

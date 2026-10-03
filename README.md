@@ -35,7 +35,7 @@ npm test
 | 2 · Look | Map theme (Latte, Frappé, Paper, Mono, Terrain, Satellite, Night, Blueprint), labels and language, visited-country shading, roads, 3D terrain, line and marker style. |
 | 3 · Signs | Postcard, signpost, ticket and tag signboards hung on route points: pause the line, appear when it arrives, or stay on. Add a photo to any sign. Optional on-screen date and distance counters. |
 | 4 · Camera | Follow the line or a static overview, framed right on the map (drag, scroll, right-drag). North-up or heading-up, zoom, look-ahead, smoothing, tilt, intro/outro and zoom keyframes. |
-| 5 · Export | 720p–4K, 24/30/60 fps; MP4 (H.264), WebM (VP9) or GIF. Export one scene or all of them. Pace, easing and holds live on the timeline bar. |
+| 5 · Export | 720p–4K, 24/30/60 fps; MP4 (H.264 + AAC), WebM (VP9 + Opus) or GIF. Optional soundtrack (volume, start point, fades) and motion blur. Export one scene or all of them. Pace, easing and holds are under Timing on the timeline bar. |
 
 Supported Google Timeline exports: the new on-device export (Android `Timeline.json` and
 iPhone), and the legacy Takeout `Records.json` / `Semantic Location History`. Files are
@@ -57,6 +57,6 @@ IT Services GmbH (contains modified Copernicus Sentinel data 2020, CC BY-NC-SA 4
 **non-commercial use only**). Country shapes: Natural Earth (public domain) via
 world-atlas. The required credits are drawn into every exported video.
 
-Built with MapLibre GL JS, Mediabunny, React, Zustand, Dexie and Tailwind CSS.
+Built with MapLibre GL JS, Mediabunny (+ its AAC encoder extension, MPL-2.0), React, Zustand, Dexie and Tailwind CSS.
 
 See [docs/PLAN.md](docs/PLAN.md) for the architecture and roadmap.

@@ -610,6 +610,9 @@ is the riskiest part, then widen each step.
 - **Sign photos:** stored as JPEG Blobs (≤1600 px, EXIF-rotated) in an IndexedDB `assets`
   table, packed into `.chilaquil` files as `assets/<id>.jpg`, pruned when a project opens.
   Each sign design has a photo layout (polaroid, pinned frame, ticket stub, avatar).
-- **Not yet built:** great-circle arcs, music track,
-  motion blur, title cards, Service
+- **Music:** one local audio file per scene (asset, packed as `assets/<id>.audio`), mixed with an
+  OfflineAudioContext (volume, start offset, fades). Preview plays the same mix; export encodes it as
+  AAC (native, or `@mediabunny/aac-encoder` WASM when the browser has none) or Opus for WebM.
+- **Motion blur:** export-only; 5 (soft, 180° shutter) or 8 (strong, 360°) sub-frames averaged per frame.
+- **Not yet built:** great-circle arcs, title cards, Service
   Worker tile cache, offline PMTiles, PWA.

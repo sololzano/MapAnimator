@@ -128,6 +128,33 @@ export interface ExportSettings {
   res: Resolution;
   fps: 24 | 30 | 60;
   fmt: VideoFormat;
+  /** Export-only motion blur: sub-frames averaged per frame. */
+  blur: MotionBlur;
+  /** Soundtrack, or null for a silent video. */
+  music: MusicSettings | null;
+}
+
+export type MotionBlur = 'off' | 'soft' | 'strong';
+
+/** Sub-frames per output frame and shutter (fraction of the frame interval) for each blur level. */
+export const BLUR: Record<MotionBlur, { samples: number; shutter: number }> = {
+  off: { samples: 1, shutter: 0 },
+  soft: { samples: 5, shutter: 0.5 },
+  strong: { samples: 8, shutter: 1 },
+};
+
+export interface MusicSettings {
+  /** Audio asset id (original file, stored locally). */
+  asset: string;
+  name: string;
+  /** Song length, seconds. */
+  duration: number;
+  /** 0..1 */
+  volume: number;
+  /** Where in the song the video starts, seconds. */
+  offset: number;
+  fadeIn: number;
+  fadeOut: number;
 }
 
 /** On-screen counters drawn in a corner of the video. */
@@ -186,7 +213,7 @@ export function defaultCamera(): CameraSettings {
 }
 
 export function defaultExport(): ExportSettings {
-  return { pace: 'normal', speed: 1, ease: 50, pre: 1, post: 2, res: '1080p', fps: 30, fmt: 'mp4' };
+  return { pace: 'normal', speed: 1, ease: 50, pre: 1, post: 2, res: '1080p', fps: 30, fmt: 'mp4', blur: 'off', music: null };
 }
 
 export function makeScene(name: string, over: Partial<Scene> = {}): Scene {
@@ -224,9 +251,9 @@ export function paceSpeed(e: ExportSettings): number {
  */
 export function normalizeScene(s: Scene): Scene {
   const cam = s.cam as unknown as Omit<CameraSettings, 'mode' | 'view'> & { mode: string; view?: CameraView | null };
-  const exp = s.exp as ExportSettings & { pace?: Pace };
+  const exp = s.exp as Omit<ExportSettings, 'pace' | 'blur' | 'music'> & { pace?: Pace; blur?: MotionBlur; music?: MusicSettings | null };
   const needCam = cam.mode === 'pan' || cam.view === undefined;
-  const needExp = !exp.pace;
+  const needExp = !exp.pace || !exp.blur || exp.music === undefined;
   const needSigns = s.signs.some((g) => !s.points.some((q) => q.id === g.pointId));
   const needTravel = !s.travel;
   const needHud = !s.hud;
@@ -236,7 +263,7 @@ export function normalizeScene(s: Scene): Scene {
     hud: s.hud ?? defaultHud(),
     travel: s.travel ?? 'car',
     cam: needCam ? { ...cam, mode: cam.mode === 'overview' ? 'overview' : 'follow', view: cam.view ?? null } : s.cam,
-    exp: needExp ? { ...exp, pace: exp.speed === 1 ? 'normal' : 'custom' } : s.exp,
+    exp: needExp ? { ...exp, pace: exp.pace ?? (exp.speed === 1 ? 'normal' : 'custom'), blur: exp.blur ?? 'off', music: exp.music ?? null } : s.exp,
     signs: needSigns
       ? (s.points.length ? s.signs.map((g) => ({ ...g, pointId: s.points[signPointIndex(s.points, g)].id })) : [])
       : s.signs,
