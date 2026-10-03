@@ -73,7 +73,7 @@ const INTRO = 'ElChilaquilWasHere turns a trip into a short map animation. Draw 
   + 'Pick a map style, add signs with photos, direct the camera, and export an MP4, WebM or GIF, with your own music if you like.';
 
 /** Everything below the page header: shared by the About page and the editor's About dialog. */
-function AboutContent({ compact = false }: { compact?: boolean }) {
+function AboutContent({ compact = false, onSupport }: { compact?: boolean; onSupport?: () => void }) {
   const h2 = cx('m-0 font-semibold tracking-[-0.015em]', compact ? 'text-[18px]' : 'text-[22px]');
   return (
     <>
@@ -83,6 +83,7 @@ function AboutContent({ compact = false }: { compact?: boolean }) {
           <div className="text-[22px] font-semibold tracking-[-0.02em]">ElChilaquil<span className="text-accent">WasHere</span></div>
           <div className="num text-[12.5px] text-muted">Version {version} · MIT licence</div>
           <p className="m-0 max-w-[560px] text-[14.5px] leading-normal text-text-2 text-pretty">{INTRO}</p>
+          {onSupport && <Button variant="ghost" className="h-[38px] px-3 text-accent" aria-haspopup="dialog" onClick={onSupport}><Icon name="heart" size={17} />Support me</Button>}
         </section>
       ) : (
         <section className="flex flex-col gap-3">
@@ -161,11 +162,11 @@ export function AboutPage() {
 }
 
 /** Desktop-style About box for the editor, so the open project stays open. */
-export function AboutDialog({ onClose }: { onClose: () => void }) {
+export function AboutDialog({ onClose, onSupport }: { onClose: () => void; onSupport: () => void }) {
   return (
     <Modal title="About" onClose={onClose} width={720}>
       <div className="flex flex-col gap-8">
-        <AboutContent compact />
+        <AboutContent compact onSupport={onSupport} />
       </div>
     </Modal>
   );
