@@ -622,9 +622,21 @@ is the riskiest part, then widen each step.
 - **Help for first-timers:** "Where do I get these files?" (Google Timeline on Android and
   iPhone, GPX/KML sources) in the Route step and the New project dialog; map hints describe
   drag/scroll, not mouse-wheel-button panning, so trackpads work.
+- **Offline place search** (Route step): GeoNames places with ≥1000 people (~135k) are
+  compacted at build time by a Vite plugin (`scripts/places.ts`, from the `all-the-cities`
+  and `cities.json` dev dependencies) into one JSON asset (~1.9 MB brotli) that the app
+  fetches from its own origin on first use. Matching runs in the browser
+  (`src/core/places.ts`: accent-insensitive, ranked by population, "City, Region"
+  filters), so no geocoding service ever sees what is typed. Results can be shown on the
+  map or added as named route points.
+- **KMZ import** (zipped KML, Google My Maps' default) is unzipped with fflate.
+- The **sample trip** stays reachable from the Projects page ("Explore a sample trip")
+  after the first project exists.
 - **About:** a page at `#/about` from the Projects page, and the same content as a dialog
   from the editor (so the open project stays open). Credits list every map data source
   and library with its licence. A tongue-in-cheek "Support me" dialog on the Projects page
   has no payment link on purpose.
 - **Not yet built:** great-circle arcs, title cards, Service
-  Worker tile cache, offline PMTiles, PWA.
+  Worker tile cache, offline PMTiles, PWA, and **touch-friendly editing** for phones and
+  tablets (long-press to delete points and a tilt control instead of right-click and
+  right-drag), planned for a later phase.

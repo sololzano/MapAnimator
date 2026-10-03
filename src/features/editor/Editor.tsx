@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { RATIOS, logicalSize, removePoint, type Ratio, type Scene } from '../../core/model';
-import { parseGpx, parseTimelineFile, type RouteImport } from '../../importers';
+import { kmzToKml, parseGpx, parseTimelineFile, type RouteImport } from '../../importers';
 import type { ParsedTimeline } from '../../importers/timeline';
 import { goProjects } from '../../nav';
 import { currentScene, useApp, type Step } from '../../state/store';
@@ -113,7 +113,7 @@ export function Editor() {
   const goStep = (n: Step) => set({ step: n, playing: false, tm: n >= 4 ? 0 : -1, sel: -1, selSign: null });
 
   const pickFile = (kind: 'gpx' | 'json') => {
-    acceptRef.current = kind === 'gpx' ? '.gpx,.xml,.kml' : '.json';
+    acceptRef.current = kind === 'gpx' ? '.gpx,.xml,.kml,.kmz' : '.json';
     if (fileRef.current) { fileRef.current.accept = acceptRef.current; fileRef.current.click(); }
   };
 
@@ -130,7 +130,8 @@ export function Editor() {
         if (!data.samples.length) throw new Error('No locations found in that file.');
         setImp({ kind: 'json', data, name: f.name });
       } else {
-        setImp({ kind: 'gpx', data: parseGpx(await f.text(), /\.kml$/i.test(f.name)), name: f.name });
+        const text = /\.kmz$/i.test(f.name) ? kmzToKml(new Uint8Array(await f.arrayBuffer())) : await f.text();
+        setImp({ kind: 'gpx', data: parseGpx(text, /\.km[lz]$/i.test(f.name)), name: f.name });
       }
     } catch (e) {
       setImp(null);

@@ -1,4 +1,5 @@
 import { gpx as gpxToGeoJSON, kml as kmlToGeoJSON } from '@tmcw/togeojson';
+import { strFromU8, unzipSync } from 'fflate';
 import { simplifyToCount, toMerc } from '../core/geo';
 import { rid, type RoutePoint, type TravelMode } from '../core/model';
 import type { ParsedTimeline } from './timeline';
@@ -25,6 +26,18 @@ export function parseTimelineFile(file: File): Promise<ParsedTimeline> {
     w.onerror = (e) => { w.terminate(); reject(new Error(e.message || 'Could not read that file')); };
     w.postMessage(file);
   });
+}
+
+/** KMZ is a zipped KML (Google My Maps' default export): returns the main KML document. */
+export function kmzToKml(bytes: Uint8Array): string {
+  let files: Record<string, Uint8Array>;
+  try {
+    files = unzipSync(bytes, { filter: (f) => /\.kml$/i.test(f.name) && f.originalSize < 50e6 });
+  } catch { throw new Error('That KMZ file is damaged or not a KMZ.'); }
+  const names = Object.keys(files);
+  const main = names.find((n) => /(^|\/)doc\.kml$/i.test(n)) ?? names[0];
+  if (!main) throw new Error('No map data (KML) found inside that KMZ file.');
+  return strFromU8(files[main]);
 }
 
 /** GPX or KML (tracks, routes and waypoints) via togeojson. */

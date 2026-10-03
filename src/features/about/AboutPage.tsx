@@ -13,6 +13,7 @@ const MAP_CREDITS: Credit[] = [
   { name: 'OpenFreeMap', url: 'https://openfreemap.org', role: 'Free vector tile hosting, no key needed', licence: 'MIT' },
   { name: 'Terrain Tiles (Mapzen, AWS Open Data)', url: 'https://github.com/tilezen/joerd/blob/master/docs/attribution.md', role: 'Elevation for 3D terrain and hillshade', licence: 'Open data, various' },
   { name: 'Sentinel-2 cloudless 2020 by EOX IT Services GmbH', url: 'https://s2maps.eu', role: 'Satellite imagery. Contains modified Copernicus Sentinel data 2020', licence: 'CC BY-NC-SA 4.0' },
+  { name: 'GeoNames', url: 'https://www.geonames.org', role: 'Place names for the offline place search (via all-the-cities and cities.json)', licence: 'CC BY 4.0' },
   { name: 'Natural Earth', url: 'https://www.naturalearthdata.com', role: 'Country shapes for highlighting visited countries', licence: 'Public domain' },
 ];
 

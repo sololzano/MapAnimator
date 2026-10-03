@@ -12,6 +12,7 @@ import { currentScene, useApp, type Step } from '../../state/store';
 import { Button, Cards, Group, Info, Segmented, Slider, Swatches, TextField, Toggle, cx } from '../../ui/controls';
 import { Icon } from '../../ui/icons';
 import { GpxHelp, TimelineHelp } from './FileHelp';
+import { PlaceSearch } from './PlaceSearch';
 
 /** 850 m · 12.3 km · 297 km · 1,240 km */
 export function fmtDist(m: number): string {
@@ -96,8 +97,9 @@ function RoutePanel({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }) 
   const km = rt.route.metresAt(1) / 1000;
   return (
     <>
+      <PlaceSearch />
       <div className="grid grid-cols-2 gap-2 px-5 pb-4">
-        <Button title="Import a GPX or KML route" className="h-[38px] px-2" onClick={() => onImport('gpx')}>GPX / KML</Button>
+        <Button title="Import a GPX, KML or KMZ route" className="h-[38px] px-2" onClick={() => onImport('gpx')}>GPX / KML</Button>
         <Button title="Import Google Timeline or a JSON route" className="h-[38px] px-2" onClick={() => onImport('json')}>Google Timeline</Button>
       </div>
       <Group title="Where do I get these files?" collapsible>

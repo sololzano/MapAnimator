@@ -153,6 +153,7 @@ export function ProjectsPage() {
     } catch (e) { setError(e instanceof Error ? e.message : 'Could not open that file.'); }
   };
   const sorted = [...projects].sort((a, b) => b.updatedAt - a.updatedAt);
+  const openSample = () => { const p = sampleProject(); addProject(p); goProject(p.id); };
 
   return (
     <div className="absolute inset-0 overflow-auto bg-bg" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); void onFile(e.dataTransfer.files[0]); }}>
@@ -180,6 +181,11 @@ export function ProjectsPage() {
             <div className="eyebrow">Projects</div>
             <h1 className="m-0 text-[38px] leading-[1.08] font-semibold tracking-[-0.035em] sm:text-[52px]">Your journeys, <span className="text-accent">in motion.</span></h1>
             <p className="m-0 text-[16px] leading-normal text-text-2 text-pretty">Turn a route into a map animation. Draw or import your journey, choose a style, and export a video. No account needed.</p>
+            {projects.length > 0 && (
+              <p className="m-0 text-[14px] text-text-2">
+                New here? <button onClick={openSample} className="border-0 bg-transparent p-0 font-semibold text-accent underline underline-offset-[3px] hover:text-accent-hover">Explore a sample trip</button> to see what it can do.
+              </p>
+            )}
           </div>
           <div className="flex gap-2.5">
             <Button className="h-[42px] px-[18px] text-[14px]" onClick={() => fileRef.current?.click()}><Icon name="upload" size={16} />Open from file</Button>
@@ -198,7 +204,7 @@ export function ProjectsPage() {
           </button>
           {sorted.map((p) => <ProjectCard key={p.id} p={p} />)}
           {!projects.length && (
-            <button onClick={() => { const p = sampleProject(); addProject(p); goProject(p.id); }}
+            <button onClick={openSample}
               className="flex min-h-[268px] flex-col items-center justify-center gap-2.5 rounded-2xl border border-line bg-panel text-text-2 hover:border-accent">
               <Icon name="play" size={24} />
               <span className="text-[17px] font-semibold text-text">Explore a sample</span>

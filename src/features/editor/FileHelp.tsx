@@ -38,9 +38,9 @@ export function TimelineHelp() {
 export function GpxHelp() {
   return (
     <div className="flex flex-col gap-2.5">
-      <Heading>GPX or KML</Heading>
+      <Heading>GPX, KML or KMZ</Heading>
       <p className="m-0 text-[12.5px] leading-normal text-text-2 text-pretty">
-        Most sport and navigation apps can export one: Strava, Komoot, Garmin Connect, Wikiloc and others (look for “Export GPX” on an activity or route). Google My Maps works too: choose Export to KML and tick “Export to a .KML file”.
+        Most sport and navigation apps can export one: Strava, Komoot, Garmin Connect, Wikiloc and others (look for “Export GPX” on an activity or route). Google My Maps works too (Export to KML/KMZ).
       </p>
     </div>
   );

@@ -34,7 +34,7 @@ export function GpxImportModal({ data, fileName, onDone, onCancel, replacing = f
   const [signs, setSigns] = useState(data.waypoints.some((w) => w.name));
   const named = data.waypoints.filter((w) => w.name);
   return (
-    <Modal title={/\.kml$/i.test(fileName) ? 'Import KML' : 'Import GPX'} onClose={onCancel} width={500}>
+    <Modal title={/\.km[lz]$/i.test(fileName) ? 'Import KML' : 'Import GPX'} onClose={onCancel} width={500}>
       <Info><b className="text-text">{fileName}</b> · {n.toLocaleString()} track points{data.waypoints.length ? ` · ${data.waypoints.length} waypoints` : ''}.</Info>
       <Slider label="Editable points" value={Math.min(max, n)} min={Math.min(2, n)} max={Math.min(n, 400)} step={1} format={(v) => `${v} of ${n.toLocaleString()}`} onChange={setMax} />
       <Info>Fewer points are easier to edit; the smooth spline keeps the shape. Named waypoints are always kept.</Info>

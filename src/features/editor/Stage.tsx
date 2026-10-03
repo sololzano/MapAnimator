@@ -222,7 +222,12 @@ export function Stage() {
     const offFit = stageBus.on('fit', () => { userMoved.current = false; fit(true); });
     const offPhoto = onPhotoLoaded(() => requestAnimationFrame(draw));
     const offZoom = stageBus.on('zoom', (d) => map.easeTo({ zoom: map.getZoom() + (d as number), duration: 250 }));
-    return () => { offFit(); offZoom(); offPhoto(); map.remove(); mapRef.current = null; };
+    const offFly = stageBus.on('flyTo', (p) => {
+      const { lng, lat, zoom } = p as { lng: number; lat: number; zoom: number };
+      userMoved.current = true;
+      map.flyTo({ center: [lng, lat], zoom, bearing: 0, pitch: 0, duration: 1200, essential: true });
+    });
+    return () => { offFit(); offZoom(); offFly(); offPhoto(); map.remove(); mapRef.current = null; };
   }, [draw, fit, set]);
 
   // Track stage size.
@@ -490,7 +495,7 @@ export function Stage() {
 
       {step === 1 && scene.points.length < 2 && <div className="pointer-events-none absolute right-3 bottom-10 left-3 mx-auto max-w-[320px] rounded-xl border border-line bg-bg/95 px-4 py-3 text-center shadow-(--shadow)">
         <div className="text-[15px] font-semibold">{scene.points.length ? 'Add your next point' : 'Draw your route'}</div>
-        <p className="mt-1 text-[12.5px] text-text-2">{scene.points.length ? 'Click another place on the map to connect your route.' : 'Zoom to your starting place, select Draw, then click the map. You can also import a GPX, KML or Google Timeline file.'}</p>
+        <p className="mt-1 text-[12.5px] text-text-2">{scene.points.length ? 'Click another place on the map to connect your route.' : 'Search for a place in the sidebar and press Add, or select Draw and click the map. You can also import a GPX, KML or Google Timeline file.'}</p>
       </div>}
 
       <div className="pointer-events-none absolute bottom-3 left-3.5 rounded bg-[rgba(35,38,52,.55)] px-1.5 py-0.5 text-[10.5px] text-[#eff1f5]">
