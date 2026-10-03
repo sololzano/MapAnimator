@@ -10,6 +10,7 @@ import { useApp } from '../../state/store';
 import { Button, Modal, PillChoice, TextField, cx } from '../../ui/controls';
 import { Icon, Logo } from '../../ui/icons';
 import { pendingImport, type StartWith } from '../editor/pending';
+import { SupportModal } from './SupportModal';
 
 function ago(ts: number): string {
   const d = (Date.now() - ts) / 1000;
@@ -128,6 +129,7 @@ export function ProjectsPage() {
   const projects = useApp((s) => s.projects);
   const addProject = useApp((s) => s.addProject);
   const [newOpen, setNewOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
   const [error, setError] = useState('');
   const [store, setStore] = useState<{ persisted: boolean; usage: number; quota: number } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -159,6 +161,9 @@ export function ProjectsPage() {
               <span className="h-[7px] w-[7px] rounded-full bg-green" />Stored in this browser only · no account
             </div>
             <Button variant="ghost" className="h-[38px] px-3" onClick={goAbout}>About</Button>
+            <Button className="h-[38px] px-3 text-text-2 hover:text-red" aria-label="Support me" title="Support me" onClick={() => setSupportOpen(true)}>
+              <Icon name="heart" size={16} /><span className="max-sm:hidden">Support me</span>
+            </Button>
             <ThemeToggle />
           </div>
         </header>
@@ -204,6 +209,7 @@ export function ProjectsPage() {
         </section>
       </div>
       {newOpen && <NewProjectModal onClose={() => setNewOpen(false)} />}
+      {supportOpen && <SupportModal onClose={() => setSupportOpen(false)} />}
     </div>
   );
 }
