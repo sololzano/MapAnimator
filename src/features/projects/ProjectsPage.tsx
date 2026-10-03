@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { goProject } from '../../nav';
+import { goAbout, goProject } from '../../nav';
 import { toMerc } from '../../core/geo';
 import { RATIOS, sampleProject, type Project, type Ratio } from '../../core/model';
 import { mapTheme } from '../../map/themes';
@@ -158,6 +158,7 @@ export function ProjectsPage() {
             <div className="hidden items-center gap-2 rounded-full border border-line bg-panel px-3 py-[7px] text-[12.5px] text-text-2 md:flex">
               <span className="h-[7px] w-[7px] rounded-full bg-green" />Stored in this browser only · no account
             </div>
+            <Button variant="ghost" className="h-[38px] px-3" onClick={goAbout}>About</Button>
             <ThemeToggle />
           </div>
         </header>
