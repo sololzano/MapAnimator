@@ -5,6 +5,10 @@ or your Google Maps Timeline), dress the map, drop signboards with photos, direc
 camera, add a song and export a video. No account, no server, no uploads: everything
 runs on your machine and your GPU.
 
+**Use it now: [elchilaquilwashere.vercel.app](https://elchilaquilwashere.vercel.app/)**,
+nothing to install. Running it yourself (below) is only needed if you want to change
+the code.
+
 ## What you need
 
 - A desktop or laptop computer. A mouse makes drawing easiest, but a trackpad works.
@@ -13,7 +17,7 @@ runs on your machine and your GPU.
 - An internet connection for the map itself (map tiles). Your routes, photos and music
   never leave your computer.
 
-## Run it
+## Run it yourself
 
 You need [Node.js](https://nodejs.org) 20.19+ or 22.12+. Then, in a terminal inside this
 folder:
@@ -40,8 +44,9 @@ npm test
 ## Your first video in five steps
 
 1. **New project**: give it a name, pick the video shape (16:9 for YouTube and TVs, 9:16
-   for phone stories) and how you want to start. No projects yet? Open the sample trip.
-2. **Route**: click the map with **Draw** to add stops, or import a file (see below).
+   for phone stories) and how you want to start. New here? Open the sample trip first.
+2. **Route**: type a town in **Find a place** and press **Add** for each stop, click the
+   map with **Draw**, or import a file (see below).
 3. **Look**: choose a map style and the colour of the line.
 4. **Signs**: hang postcards or signposts on your stops, optionally with a photo.
 5. **Export**: press **Preview** to watch it, then **Export this scene** to save the video.
@@ -62,8 +67,8 @@ with a USB cable, AirDrop or Quick Share. The app lets you pick the dates to ani
 which kinds of travel to keep. Older Google Takeout files (`Records.json`, Semantic
 Location History) work too.
 
-**GPX / KML:** Strava, Komoot, Garmin Connect, Wikiloc and most sport or navigation apps
-can export a GPX. Google My Maps exports KML (tick "Export to a .KML file").
+**GPX / KML / KMZ:** Strava, Komoot, Garmin Connect, Wikiloc and most sport or
+navigation apps can export a GPX. Google My Maps exports KMZ or KML; both work.
 
 The same instructions are in the app, under **Where do I get these files?** in the Route
 step and in the New project dialog.
@@ -73,7 +78,7 @@ step and in the New project dialog.
 | Step | What you do |
 |---|---|
 | Projects | Projects live in this browser (IndexedDB). **Download** one from its card as a `.chilaquil` file (photos and music included) to keep a backup or move it to another computer, then **Open from file**. |
-| 1 · Route | Click to draw, drag points, drag the small circles to insert, right-click/Delete to remove. Drag the map to move around, scroll to zoom. Import GPX/KML or a Google Timeline JSON and pick the dates and travel modes. Set a travel mode per leg, or hide legs you don't want drawn. |
+| 1 · Route | Find a place by name (offline, about 135,000 towns and cities) and add it as a stop. Click to draw, drag points, drag the small circles to insert, right-click/Delete to remove. Drag the map to move around, scroll to zoom. Import GPX/KML/KMZ or a Google Timeline JSON and pick the dates and travel modes. Set a travel mode per leg, or hide legs you don't want drawn. |
 | 2 · Look | Map theme (Latte, Frappé, Paper, Mono, Terrain, Satellite, Night, Blueprint), labels and language, visited-country shading, roads, 3D terrain, line and marker style. |
 | 3 · Signs | Postcard, signpost, ticket and tag signboards hung on route points: pause the line, appear when it arrives, or stay on. Add a photo to any sign. Optional on-screen date and distance counters. |
 | 4 · Camera | Follow the line or a static overview, framed right on the map (drag, scroll, right-drag). North-up or heading-up, zoom, look-ahead, smoothing, tilt, intro/outro and zoom keyframes. |
@@ -113,13 +118,18 @@ areas are being viewed, like any web map. A Content-Security-Policy in `index.ht
 blocks every other host, so your routes, signs, photos, music and projects cannot be sent
 anywhere.
 
+Place search is offline too: the list of places is built from GeoNames when the app is
+built, served by the app itself, and searched inside your browser. What you type is
+never sent to a search service.
+
 ## Credits and licences
 
 Code: [MIT](LICENSE). Transport badge icons from Tabler Icons (MIT). Map data ©
 OpenStreetMap contributors (ODbL), OpenMapTiles schema, served by OpenFreeMap. Terrain:
 Mapzen Terrain Tiles on AWS. Satellite: Sentinel‑2 cloudless by EOX IT Services GmbH
 (contains modified Copernicus Sentinel data 2020, CC BY-NC-SA 4.0, so **non-commercial
-use only**). Country shapes: Natural Earth (public domain) via world-atlas. The required
+use only**). Country shapes: Natural Earth (public domain) via world-atlas. Place search: GeoNames
+(CC BY 4.0) via all-the-cities and cities.json. The required
 credits are drawn into every exported video.
 
 Built with MapLibre GL JS, Mediabunny (+ its AAC encoder extension, MPL-2.0, which uses
