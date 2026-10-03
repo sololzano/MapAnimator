@@ -9,6 +9,7 @@ import { PROJECT_EXT, projectFileName, projectFromFile, projectToFile } from '..
 import { useApp } from '../../state/store';
 import { Button, Modal, PillChoice, TextField, cx } from '../../ui/controls';
 import { Icon, Logo } from '../../ui/icons';
+import { GpxHelp, TimelineHelp } from '../editor/FileHelp';
 import { pendingImport, type StartWith } from '../editor/pending';
 import { SupportModal } from './SupportModal';
 
@@ -116,6 +117,12 @@ function NewProjectModal({ onClose }: { onClose: () => void }) {
       <div className="flex flex-col gap-1.5 text-[13px] text-text-2">Start with
         <PillChoice value={start} options={[['draw', 'Draw on map'], ['gpx', 'GPX / KML'], ['json', 'Google Timeline']]} onChange={setStart} />
       </div>
+      {start !== 'draw' && (
+        <details className="-mt-2 rounded-xl bg-panel px-4 py-3">
+          <summary className="cursor-pointer text-[13px] font-medium text-text select-none">Where do I get this file?</summary>
+          <div className="mt-3">{start === 'json' ? <TimelineHelp /> : <GpxHelp />}</div>
+        </details>
+      )}
       <div className="mt-1 flex justify-end gap-2.5">
         <Button type="button" className="h-[42px] px-[18px] text-[14px]" onClick={onClose}>Cancel</Button>
         <Button type="submit" variant="primary" className="h-[42px] px-[22px] text-[14px]">Create project</Button>

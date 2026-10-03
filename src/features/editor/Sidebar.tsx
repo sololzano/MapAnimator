@@ -11,6 +11,7 @@ import { exportDims, exportFps } from '../../render/exporter';
 import { currentScene, useApp, type Step } from '../../state/store';
 import { Button, Cards, Group, Info, Segmented, Slider, Swatches, TextField, Toggle, cx } from '../../ui/controls';
 import { Icon } from '../../ui/icons';
+import { GpxHelp, TimelineHelp } from './FileHelp';
 
 /** 850 m · 12.3 km · 297 km · 1,240 km */
 export function fmtDist(m: number): string {
@@ -99,8 +100,12 @@ function RoutePanel({ onImport }: { onImport: (kind: 'gpx' | 'json') => void }) 
         <Button title="Import a GPX or KML route" className="h-[38px] px-2" onClick={() => onImport('gpx')}>GPX / KML</Button>
         <Button title="Import Google Timeline or a JSON route" className="h-[38px] px-2" onClick={() => onImport('json')}>Google Timeline</Button>
       </div>
+      <Group title="Where do I get these files?" collapsible>
+        <TimelineHelp />
+        <GpxHelp />
+      </Group>
       <Group title="Drawing & shortcuts" collapsible>
-        <Info>Use the toolbar on the map. <b>Draw</b>: click to add points. <b>Move</b>: drag points; drag the small circles on the line to insert; right-click or <kbd>Delete</kbd> removes. <b>Pan</b>: hold the mouse wheel button and drag. Scroll to zoom. <kbd>Ctrl+Z</kbd> undoes.</Info>
+        <Info>Use the toolbar on the map. <b>Draw</b>: click the map to add points. <b>Edit</b>: drag a point to move it, or drag the small circles on the line to add a point in between; right-click a point or press <kbd>Delete</kbd> to remove it. <b>Pan</b>: drag without adding points. In any mode, drag the map to move around and scroll to zoom. <kbd>Ctrl+Z</kbd> undoes.</Info>
       </Group>
       {sel >= 0 && sel < scene.points.length && <PointEditor i={sel} />}
       <Group title={`Route points · ${scene.points.length}`}

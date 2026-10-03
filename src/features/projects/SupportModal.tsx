@@ -2,8 +2,6 @@ import { useState } from 'react';
 import { Button, Modal } from '../../ui/controls';
 import { Icon } from '../../ui/icons';
 
-/** Ko-fi, Buy Me a Coffee, GitHub Sponsors, PayPal… Leave empty to hide the donate button. */
-export const DONATE_URL = '';
 const REPO_URL = 'https://github.com/sololzano/MapAnimator';
 
 const BILL: [string, string][] = [
@@ -44,12 +42,12 @@ export function SupportModal({ onClose }: { onClose: () => void }) {
         </ul>
         <div className="mt-3 flex items-baseline justify-between gap-3 border-t border-dashed border-line-x pt-3 text-[13px] font-semibold">
           <span>TOTAL</span>
-          <span className="text-right text-accent">pay what you want (even $0)</span>
+          <span className="text-right text-accent">$0.00, we checked twice</span>
         </div>
       </div>
 
       <p className="m-0 text-[14.5px] leading-[1.6] text-text-2 text-pretty">
-        If it turned your trip into a video your family actually watched to the end, consider buying me a plate of chilaquiles. No cloud bills to cover, so every cent goes to tortilla chips and salsa.
+        There is no payment button. There was never going to be a payment button. If it turned your trip into a video your family actually watched to the end, star the repo, share your video, or tell a friend. Chilaquiles are optional, but recommended.
       </p>
 
       {excuse && <div role="status" className="rounded-xl bg-panel px-4 py-3 text-[13.5px] text-text-2">{excuse}</div>}
@@ -62,14 +60,8 @@ export function SupportModal({ onClose }: { onClose: () => void }) {
           className="inline-flex h-[42px] items-center justify-center gap-2 rounded-[9px] border border-line-strong bg-card px-4 text-[14px] font-medium text-text hover:bg-panel">
           <Icon name="star" size={16} />Star on GitHub
         </a>
-        {DONATE_URL && (
-          <a href={DONATE_URL} target="_blank" rel="noopener noreferrer"
-            className="inline-flex h-[42px] items-center justify-center gap-2 rounded-[9px] border border-transparent bg-accent px-5 text-[14px] font-semibold text-on-accent hover:bg-accent-hover">
-            <Icon name="heart" size={16} />Buy me chilaquiles
-          </a>
-        )}
       </div>
-      <p className="m-0 text-center text-[12px] text-muted">Paying is optional. Every feature stays free, forever. Even the motorcycle.</p>
+      <p className="m-0 text-center text-[12px] text-muted">Every feature stays free, forever. Even the motorcycle.</p>
     </Modal>
   );
 }

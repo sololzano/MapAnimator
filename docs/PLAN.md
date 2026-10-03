@@ -1,10 +1,11 @@
 # ElChilaquilWasHere: Implementation Plan
 
-> **Status (2026-10-02):** v0.1 implemented, following `design/Wayline.dc.html` with
+> **Status (2026-10-03):** v0.1 implemented, following `design/Wayline.dc.html` with
 > Catppuccin Latte/Frappé + Teal and Inter. Done: projects page, `.chilaquil` files,
 > editor shell, all five steps, Google Timeline (4 formats) and GPX/KML import,
-> deterministic preview, and MP4/WebM/GIF export (single and batch). See "Deviations"
-> at the end for what changed from this plan.
+> deterministic preview, MP4/WebM/GIF export (single and batch), sign photos, music,
+> motion blur, and About/credits. See "Deviations" at the end for what changed from
+> this plan.
 
 An open source, free, **100% client-side** web app for making travel route animations.
 Everything (parsing, editing, rendering, video encoding) runs in the user's browser on
@@ -51,7 +52,7 @@ their own CPU/GPU. There is no backend, no account, and no upload.
 | Geo math | **@turf/*** (selected modules), own spline/arc code | Distances, bearings, along-line, simplification |
 | GPX/KML | **@tmcw/togeojson** | Robust GPX/KML → GeoJSON |
 | Storage | **Dexie** (IndexedDB) | Projects, scenes, blobs (photos), thumbnails |
-| Project files | **fflate** (zip) + **zod** (schema validation) | `.mapanim` export/import, safe parsing of untrusted files |
+| Project files | **fflate** (zip) + **zod** (schema validation) | `.chilaquil` export/import, safe parsing of untrusted files |
 | Workers | **Comlink** + Web Workers | Parsing huge Google exports and geometry prep off the UI thread |
 | Routing | **TanStack Router** or React Router, hash history | Works on any static host without rewrites |
 | Tests | **Vitest** (core logic), **Playwright** (E2E incl. a tiny export) | |
@@ -143,7 +144,7 @@ interface RouteGeometry {
 }
 ```
 
-`schemaVersion` + a `migrations/` folder so old `.mapanim` files keep opening.
+`schemaVersion` + a `migrations/` folder so old `.chilaquil` files keep opening.
 
 ---
 
@@ -176,7 +177,7 @@ interface RouteGeometry {
 ```
 
 - **New project** → name dialog → opens the editor with one empty scene at Step 1.
-- **Download** → `<name>.mapanim` (a zip of `project.json` plus `assets/` photos and icons).
+- **Download** → `<name>.chilaquil` (a zip of `project.json` plus `assets/` photos and icons).
 - **Import project** → file picker or drag-and-drop; validated with zod and migrated.
 - **Delete** → confirm dialog. Deletion is permanent, so offer "Download first".
 - Private mode detection: `navigator.storage.persisted()` is false or the quota is tiny, so
@@ -461,7 +462,7 @@ await output.finalize();
 
 - **Dexie DB** tables: `projects`, `scenes` (one row per scene, so saves are small),
   `assets` (Blobs: photos, custom icons, music), `thumbnails`, `settings`.
-- `.mapanim` file = zip: `manifest.json` (app version, schemaVersion), `project.json`,
+- `.chilaquil` file = zip: `manifest.json` (app version, schemaVersion), `project.json`,
   `scenes/*.json`, `assets/*`. Import validates every file with zod and re-IDs on
   collision ("Import as copy").
 - Raw imported source files (GPX/Timeline) are **not** stored by default; only the
@@ -483,7 +484,7 @@ await output.finalize();
 - Untrusted inputs (project zips, GPX, JSON) are parsed in workers and schema-validated.
   User text is only ever drawn on canvas or set as `textContent`, never as `innerHTML`.
 - Repo hygiene: `.gitignore` already blocks `*.gpx` and `data/`. Add
-  `Timeline*.json`, `Records.json`, `*.mapanim`. Test fixtures are **synthetic** files under
+  `Timeline*.json`, `Records.json`, `*.chilaquil`. Test fixtures are **synthetic** files under
   `test/fixtures/`.
 
 ---
@@ -507,7 +508,7 @@ MapAnimator/
 │  ├─ map/                      # createMap, styleBuilder (themes/labels/terrain), routeLayers, editor tools
 │  ├─ overlays/                 # Canvas2D signboard templates, HUD overlays, compositor
 │  ├─ render/                   # exporter (Mediabunny), frame loop, tile warmup, batch queue
-│  ├─ storage/                  # dexie db, autosave, .mapanim zip import/export
+│  ├─ storage/                  # dexie db, autosave, .chilaquil zip import/export
 │  ├─ state/                    # zustand stores (project, editor UI, playback), undo/redo
 │  ├─ ui/                       # theme (catppuccin tokens), primitives, layout (TopBar, Sidebar, Timeline)
 │  └─ features/
@@ -530,7 +531,7 @@ is the riskiest part, then widen each step.
 | # | Milestone | Done when |
 |---|---|---|
 | **M0** | **Spikes** (2–3 days): (a) MapLibre offscreen frame capture + Mediabunny 1080p30 MP4 with terrain on, measuring ms/frame on Linux Chrome & Firefox; (b) CORS + `canvas` readback works for OpenFreeMap, Terrain Tiles, and EOX; (c) reference-resolution preview scaling; (d) parse a *real* Google Timeline export from your phone | Numbers and a go/no-go per risk in §13 |
-| **M1** | App shell: Vite/React/TS, Catppuccin Latte/Frappé + teal theme, Projects page (CRUD, download/import `.mapanim`, storage warning), editor layout with scene tabs + step switcher + empty panels | Create/rename/delete/download/import projects and scenes |
+| **M1** | App shell: Vite/React/TS, Catppuccin Latte/Frappé + teal theme, Projects page (CRUD, download/import `.chilaquil`, storage warning), editor layout with scene tabs + step switcher + empty panels | Create/rename/delete/download/import projects and scenes |
 | **M2** | Step 1 core: manual draw/edit (straight/spline/arc), GPX import, undo/redo, autosave | Draw a route by hand or import a GPX and edit it |
 | **M3** | Engine + skeleton export: TimeMap, line reveal, tip, playback, bottom timeline scrubbing, **basic MP4 export** (fit camera, default look) | First real video file exported end to end |
 | **M4** | Google Timeline import (3 formats, worker, calendar heatmap date filter, modes from activities, cleanup tools) | Pick a date range from a real export and get a clean route |
@@ -614,5 +615,16 @@ is the riskiest part, then widen each step.
   OfflineAudioContext (volume, start offset, fades). Preview plays the same mix; export encodes it as
   AAC (native, or `@mediabunny/aac-encoder` WASM when the browser has none) or Opus for WebM.
 - **Motion blur:** export-only; 5 (soft, 180° shutter) or 8 (strong, 360°) sub-frames averaged per frame.
+- **Editor chrome:** the step switcher is its own row under the top bar; the top bar holds
+  the project name, aspect ratio, About (ⓘ), theme and **Export video**. Project files are
+  downloaded from the Projects page cards only, so "Download" and "Export" aren't confused.
+  Pace, easing and holds live in a **Timing** dialog on the timeline bar.
+- **Help for first-timers:** "Where do I get these files?" (Google Timeline on Android and
+  iPhone, GPX/KML sources) in the Route step and the New project dialog; map hints describe
+  drag/scroll, not mouse-wheel-button panning, so trackpads work.
+- **About:** a page at `#/about` from the Projects page, and the same content as a dialog
+  from the editor (so the open project stays open). Credits list every map data source
+  and library with its licence. A tongue-in-cheek "Support me" dialog on the Projects page
+  has no payment link on purpose.
 - **Not yet built:** great-circle arcs, title cards, Service
   Worker tile cache, offline PMTiles, PWA.

@@ -472,7 +472,7 @@ export function Stage() {
         {step === 1 && <div role="group" aria-label="Route tools" className="absolute top-3.5 left-3.5 flex gap-0.5 rounded-xl border border-line bg-bg p-1 shadow-(--shadow)">
             {toolBtn('Draw points (click the map)', 'draw', () => set({ tool: 'draw', playing: false, tm: -1 }), tool === 'draw', false, 'Draw')}
             {toolBtn('Move / insert points', 'move', () => set({ tool: 'edit', playing: false, tm: -1 }), tool === 'edit', false, 'Edit')}
-            {toolBtn('Pan — or hold the mouse wheel button', 'pan', () => set({ tool: 'pan' }), tool === 'pan', false, 'Pan')}
+            {toolBtn('Pan: drag the map without adding points', 'pan', () => set({ tool: 'pan' }), tool === 'pan', false, 'Pan')}
         </div>}
         <div className={cx('absolute left-3.5 flex flex-col gap-0.5 rounded-xl border border-line bg-bg p-1 shadow-(--shadow)', step === 1 ? 'top-[68px]' : 'top-3.5')}>
           {step === 1 && [
@@ -480,7 +480,7 @@ export function Stage() {
             toolBtn('Redo (Ctrl+Shift+Z)', 'redo', redo, false, !hasFuture),
             toolBtn('Delete selected point', 'trash', () => { updateScene((s) => removePoint(s, sel)); set({ sel: -1 }); }, false, sel < 0),
           ]}
-          {step !== 1 && toolBtn('Pan — drag the map, or hold the mouse wheel button', 'pan', () => {}, true)}
+          {step !== 1 && toolBtn('Drag the map to move around', 'pan', () => {}, true)}
           {sep('s2')}
           {toolBtn('Zoom in', 'zoomIn', () => stageBus.emit('zoom', 1))}
           {toolBtn('Zoom out', 'zoomOut', () => stageBus.emit('zoom', -1))}
@@ -498,7 +498,7 @@ export function Stage() {
           ? scene.cam.mode === 'overview'
             ? 'Overview · drag to pan · scroll to zoom · right-drag to rotate and tilt'
             : 'Following the line · scroll to zoom at the playhead · right-drag to tilt'
-          : 'Scroll to zoom · hold the wheel button to pan · right-drag to rotate'}
+          : 'Drag to move · scroll to zoom · right-drag to rotate'}
       </div>
       {toast && <div role="status" className="absolute bottom-5 left-1/2 max-w-[90%] -translate-x-1/2 rounded-xl bg-inverse px-4 py-[9px] text-center text-[13px] text-on-inverse shadow-[0_8px_24px_rgba(0,0,0,.3)]">{toast}</div>}
     </div>
